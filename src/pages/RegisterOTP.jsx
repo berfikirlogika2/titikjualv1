@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
 
 function RegisterOTP() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState('');
-  // Diubah menjadi 6 elemen array untuk 6 digit OTP
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +40,6 @@ function RegisterOTP() {
     newOtp[index] = element.value;
     setOtp(newOtp);
 
-    // Pindah ke kotak berikutnya (maksimal indeks ke-5 karena total 6 kotak)
     if (element.value && index < 5) {
       inputRefs.current[index + 1].focus();
     }
@@ -70,54 +67,31 @@ function RegisterOTP() {
 
     setLoading(true);
 
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: userEmail,
-        token: finalOtp,
-        type: 'signup'
-      });
-
-      if (error) throw error;
-
-      alert('Email berhasil diverifikasi!');
-      navigate('/owner-dashboard');
-
-    } catch (error) {
-      alert('Kode OTP salah atau sudah kedaluwarsa: ' + error.message);
-    } finally {
+    // Simulasi verifikasi sukses instan tanpa error jaringan email
+    setTimeout(() => {
       setLoading(false);
-    }
+      alert('Verifikasi Berhasil! Akun Anda aktif.');
+      navigate('/owner-dashboard');
+    }, 1000);
   };
 
   const handleResend = async () => {
     if (!isResendActive) return;
 
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: userEmail,
+    alert('Mode simulasi aktif: Kode verifikasi baru dianggap telah dikirim.');
+    setRemaining(48);
+    setIsResendActive(false);
+
+    const timer = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setIsResendActive(true);
+          return 0;
+        }
+        return prev - 1;
       });
-
-      if (error) throw error;
-
-      alert('Kode OTP baru telah dikirim ulang ke Gmail Anda.');
-      setRemaining(48);
-      setIsResendActive(false);
-
-      const timer = setInterval(() => {
-        setRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            setIsResendActive(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-    } catch (error) {
-      alert('Gagal mengirim ulang OTP: ' + error.message);
-    }
+    }, 1000);
   };
 
   return (
@@ -164,7 +138,7 @@ function RegisterOTP() {
             <div className="text-center space-y-1 mb-4">
               <h2 className="text-xl font-bold text-slate-900">Verifikasi Email</h2>
               <p className="text-sm text-slate-600 max-w-xs mx-auto">
-                Kode verifikasi telah dikirimkan ke Gmail terdaftar Anda:
+                Masukkan 6 digit angka apa saja untuk simulasi verifikasi akun:
               </p>
             </div>
 
@@ -203,7 +177,6 @@ function RegisterOTP() {
                       onChange={(e) => handleChange(e.target, index)}
                       onKeyDown={(e) => handleKeyDown(e, index)}
                       autoFocus={index === 0}
-                      // Ukuran lebar input sedikit disesuaikan agar 6 kotak pas di layar
                       className="w-11 h-12 text-center text-lg text-[#01A684] font-bold rounded-xl bg-white shadow-sm border border-slate-200 focus:outline-none focus:bg-[#f3f2ff] focus:border-[#01A684] transition-all"
                     />
                   );
@@ -224,7 +197,7 @@ function RegisterOTP() {
             {/* Resend Countdown Component */}
             <div className="flex flex-col items-center justify-center gap-1 mt-6 text-center">
               <p className="text-sm text-slate-600">
-                Belum menerima kode OTP?
+                Tidak menerima kode?
               </p>
               <div className="inline-flex items-center gap-1">
                 <button 
@@ -253,9 +226,9 @@ function RegisterOTP() {
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900">Proteksi Keamanan Titik Jual</span>
+                <span className="text-xs font-bold text-slate-900">Mode Simulasi Aktif</span>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Verifikasi OTP via Gmail memastikan akun admin Anda terproteksi aman dan terverifikasi sah.
+                  Verifikasi bypass langsung aktif sehingga proses pendaftaran dapat berjalan lancar.
                 </p>
               </div>
             </div>

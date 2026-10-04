@@ -35,7 +35,7 @@ function Register() {
     setLoading(true);
 
     try {
-      // Pendaftaran akun via Supabase Auth (Mengirim email OTP verifikasi)
+      // Pendaftaran akun via Supabase Auth tanpa memicu verifikasi email eksternal
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -51,8 +51,11 @@ function Register() {
 
       if (error) throw error;
 
+      // Simpan email ke localStorage untuk simulasi
       localStorage.setItem('regEmail', formData.email);
-      alert('Pendaftaran berhasil! Silakan masukkan kode verifikasi yang dikirim ke Gmail Anda.');
+      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi simulasi.');
+      
+      // Arahkan ke halaman simulasi OTP yang sudah kita sesuaikan
       navigate('/register-otp');
 
     } catch (error) {
@@ -186,7 +189,7 @@ function Register() {
                     type="email" 
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Kami akan mengirimkan kode verifikasi (OTP) ke email ini.</p>
+                <p className="text-xs text-gray-500 mt-2">Gunakan email aktif untuk login berikutnya.</p>
               </div>
 
               {/* Pilih Peran (Role) Field */}
