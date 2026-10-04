@@ -17,11 +17,11 @@ function RegisterOTP() {
     e.preventDefault();
     setLoading(true);
 
-    // Simulasi sukses instan
+    // Simulasi sukses instan, arahkan ke halaman pilih paket (register-plan)
     setTimeout(() => {
       setLoading(false);
-      alert('Pendaftaran & Verifikasi Berhasil!');
-      navigate('/owner-dashboard');
+      alert('Pendaftaran Berhasil! Silakan pilih paket langganan Anda.');
+      navigate('/register-plan');
     }, 800);
   };
 
