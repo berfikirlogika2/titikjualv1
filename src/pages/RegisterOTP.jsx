@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Pastikan path file supabaseClient sudah benar
+import { supabase } from '../supabaseClient';
 
 function RegisterOTP() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  // Diubah menjadi 6 elemen array untuk 6 digit OTP
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef([]);
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +42,8 @@ function RegisterOTP() {
     newOtp[index] = element.value;
     setOtp(newOtp);
 
-    if (element.value && index < 3) {
+    // Pindah ke kotak berikutnya (maksimal indeks ke-5 karena total 6 kotak)
+    if (element.value && index < 5) {
       inputRefs.current[index + 1].focus();
     }
   };
@@ -61,15 +63,14 @@ function RegisterOTP() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const finalOtp = otp.join('');
-    if (finalOtp.length < 4) {
-      alert('Silakan masukkan 4 digit kode verifikasi dengan lengkap.');
+    if (finalOtp.length < 6) {
+      alert('Silakan masukkan 6 digit kode verifikasi dengan lengkap.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Verifikasi OTP ke Supabase Auth
       const { data, error } = await supabase.auth.verifyOtp({
         email: userEmail,
         token: finalOtp,
@@ -182,13 +183,13 @@ function RegisterOTP() {
             </div>
 
             {/* Input Section Form */}
-            <form className="w-full max-w-xs flex flex-col items-center gap-4" onSubmit={handleSubmit}>
+            <form className="w-full max-w-md flex flex-col items-center gap-4" onSubmit={handleSubmit}>
               <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Masukkan 4 Digit Kode Verifikasi
+                Masukkan 6 Digit Kode Verifikasi
               </label>
 
-              {/* 4-Digit Inputs */}
-              <div className="flex items-center justify-center gap-3 w-full" id="otp-container">
+              {/* 6-Digit Inputs */}
+              <div className="flex items-center justify-center gap-2 w-full" id="otp-container">
                 {otp.map((data, index) => {
                   return (
                     <input
@@ -202,7 +203,8 @@ function RegisterOTP() {
                       onChange={(e) => handleChange(e.target, index)}
                       onKeyDown={(e) => handleKeyDown(e, index)}
                       autoFocus={index === 0}
-                      className="w-14 h-14 text-center text-xl text-[#01A684] font-bold rounded-xl bg-white shadow-sm border border-slate-200 focus:outline-none focus:bg-[#f3f2ff] focus:border-[#01A684] transition-all"
+                      // Ukuran lebar input sedikit disesuaikan agar 6 kotak pas di layar
+                      className="w-11 h-12 text-center text-lg text-[#01A684] font-bold rounded-xl bg-white shadow-sm border border-slate-200 focus:outline-none focus:bg-[#f3f2ff] focus:border-[#01A684] transition-all"
                     />
                   );
                 })}
