@@ -14,25 +14,35 @@ function RegisterPayment() {
   });
 
   useEffect(() => {
-    // Ambil data pilihan dari localStorage yang disimpan di Step 2
+    // Ambil data pilihan dari localStorage yang disimpan di halaman Plan
     const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
     const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
-    const savedPrice = localStorage.getItem('totalPrice') || 250000;
+    const savedPrice = localStorage.getItem('totalPrice');
 
     let planName = 'Paket Growth';
-    if (savedPlan === 'starter') planName = 'Paket Starter';
-    if (savedPlan === 'enterprise') planName = 'Pro Enterprise';
+    let defaultPrice = 250000;
+
+    if (savedPlan === 'starter') {
+      planName = 'Paket Starter';
+      defaultPrice = savedCycle === 'yearly' ? 1000000 : 100000; // Sesuaikan harga paket Anda
+    } else if (savedPlan === 'growth') {
+      planName = 'Paket Growth';
+      defaultPrice = savedCycle === 'yearly' ? 2500000 : 250000;
+    } else if (savedPlan === 'enterprise' || savedPlan === 'pro') {
+      planName = 'Pro Enterprise';
+      defaultPrice = savedCycle === 'yearly' ? 5000000 : 500000;
+    }
 
     setPlanDetails({
       name: planName,
       key: savedPlan,
       cycle: savedCycle,
-      price: Number(savedPrice)
+      price: savedPrice ? Number(savedPrice) : defaultPrice
     });
 
     // Load Midtrans Snap Script secara dinamis
-    const midtransScriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js'; // Gunakan production URL jika sudah live: 'https://app.midtrans.com/snap/snap.js'
-    const myClientKey = 'Mid-client-QYOPB6cvl1hbPgMW'; // Client Key Midtrans Anda
+    const midtransScriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js'; 
+    const myClientKey = 'Mid-client-QYOPB6cvl1hbPgMW';
 
     if (!document.getElementById('midtrans-script')) {
       const script = document.createElement('script');
@@ -46,20 +56,22 @@ function RegisterPayment() {
   const handlePay = async () => {
     setLoading(true);
     try {
-      // 1. Coba ambil user aktif dari Supabase
+      // 1. Ambil user aktif dari sesi Supabase
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 2. Data fallback / dummy jika sesi belum ada (untuk mempermudah uji coba sandbox)
+      // 2. Ambil email dari localStorage pendaftaran jika sesi auth belum terbentuk sempurna
+      const registeredEmail = localStorage.getItem('regEmail');
+
       const currentUser = user || {
-        id: 'test-user-' + Date.now(),
-        email: localStorage.getItem('regEmail') || 'test-owner@titikjual.com',
+        id: 'user-' + Date.now(),
+        email: registeredEmail || 'owner@titikjual.com',
         user_metadata: {
-          full_name: 'Owner Uji Coba',
+          full_name: 'Owner Titik Jual',
           phone: '081234567890'
         }
       };
 
-      // 3. Panggil fungsi helper Midtrans dengan data user (asli atau dummy)
+      // 3. Panggil helper transaksi Midtrans dengan data dinamis
       const data = await createMidtransTransaction({
         order_id: `TITIKJUAL-${currentUser.id}-${Date.now()}`,
         gross_amount: planDetails.price,
@@ -70,7 +82,7 @@ function RegisterPayment() {
         },
         customer: {
           email: currentUser.email,
-          full_name: currentUser.user_metadata?.full_name || 'Owner Titik Jual',
+          full_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
           phone: currentUser.user_metadata?.phone || '08123456789'
         }
       });
@@ -139,7 +151,7 @@ function RegisterPayment() {
               </p>
             </div>
 
-            {/* Stepper Indicator (Step 3 Aktif) */}
+            {/* Stepper Indicator */}
             <div className="flex items-center justify-center mb-7 px-4">
               <div className="flex items-center w-full max-w-xs relative">
                 <div className="flex flex-col items-center z-10">
@@ -194,12 +206,12 @@ function RegisterPayment() {
               </div>
             </div>
 
-            {/* Info Pembayaran Semi-Otomatis */}
+            {/* Info Pembayaran */}
             <div className="bg-[#01A684]/10 border border-[#01A684]/30 rounded-xl p-4 mb-6">
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#01A684] text-xl mt-0.5">info</span>
                 <p className="text-xs text-[#181b2b] leading-relaxed">
-                  Anda dapat membayar melalui <strong>QRIS, Virtual Account (BCA, Mandiri, BNI, dll), atau E-Wallet</strong>. Sistem akan otomatis mengaktifkan akun Anda setelah pembayaran berhasil.
+                  Anda dapat membayar melalui <strong>QRIS, Virtual Account, atau E-Wallet</strong>. Sistem akan otomatis mengaktifkan akun Anda setelah pembayaran berhasil.
                 </p>
               </div>
             </div>

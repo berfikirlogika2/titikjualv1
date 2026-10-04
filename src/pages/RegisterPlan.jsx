@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 
 function RegisterPlan() {
   const navigate = useNavigate();
-  const [selectedPlan, setSelectedPlan] = useState('growth');
-  // State untuk billing cycle: 'monthly' atau 'yearly'
+  const [selectedPlan, setSelectedPlan] = useState('free_trial'); // Default ke free trial 2 minggu
+  // State untuk billing cycle: 'monthly' atau 'yearly' (hanya berlaku untuk paket berbayar)
   const [billingCycle, setBillingCycle] = useState('monthly');
 
-  // Harga dasar per bulan
+  // Harga dasar per bulan untuk paket berbayar
   const prices = {
     starter: 150000,
     growth: 250000,
@@ -16,6 +16,7 @@ function RegisterPlan() {
 
   // Kalkulasi harga & diskon
   const getCalculatedPrice = (planKey) => {
+    if (planKey === 'free_trial') return 0;
     const baseMonthly = prices[planKey];
     if (billingCycle === 'yearly') {
       // Diskon 10% untuk Growth dan Enterprise
@@ -30,7 +31,14 @@ function RegisterPlan() {
     localStorage.setItem('selectedPlan', selectedPlan);
     localStorage.setItem('billingCycle', billingCycle);
     localStorage.setItem('totalPrice', getCalculatedPrice(selectedPlan));
-    navigate('/register-payment');
+
+    if (selectedPlan === 'free_trial') {
+      // Jika pilih free trial 2 minggu, langsung ke halaman sukses/dashboard tanpa bayar
+      navigate('/register-success');
+    } else {
+      // Jika pilih paket berbayar, lanjut ke step pembayaran Midtrans
+      navigate('/register-payment');
+    }
   };
 
   return (
@@ -66,7 +74,7 @@ function RegisterPlan() {
             <div className="text-center mb-5">
               <h1 className="text-2xl font-bold text-[#181b2b] tracking-tight">Pilih Paket Bisnis</h1>
               <p className="text-xs text-[#86899B] mt-1.5 leading-relaxed">
-                Pilih paket sistem kasir Titik Jual yang paling sesuai dengan skala outlet dan kebutuhan usaha Anda.
+                Nikmati uji coba gratis 2 minggu atau pilih paket sistem kasir yang sesuai dengan kebutuhan usaha Anda.
               </p>
             </div>
 
@@ -143,6 +151,43 @@ function RegisterPlan() {
             {/* Pilihan Paket Bento Cards */}
             <div className="space-y-3">
               
+              {/* Paket 0: Free Trial 2 Minggu (Baru Ditambahkan) */}
+              <div 
+                onClick={() => setSelectedPlan('free_trial')}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                  selectedPlan === 'free_trial' 
+                    ? 'border-[#01A684] bg-[#01A684]/5 shadow-sm' 
+                    : 'border-[#E9EBED] bg-[#F1F2F6]/40 hover:border-[#01A684]/40'
+                }`}
+              >
+                {selectedPlan === 'free_trial' && (
+                  <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-[#01A684] text-white text-[10px] font-bold tracking-wider uppercase shadow-sm">
+                    Tanpa Kartu Kredit
+                  </div>
+                )}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-[#181b2b]">Uji Coba Free 2 Minggu</h3>
+                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#01A684]/20 text-[#01A684] rounded-full">Akses Penuh</span>
+                    </div>
+                    <p className="text-xs text-[#86899B] mt-1">Coba seluruh fitur premium tanpa batasan selama 14 hari</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-[#01A684]">
+                      Rp 0
+                    </span>
+                    <span className="text-[10px] text-[#86899B] block">
+                      Gratis 14 Hari
+                    </span>
+                  </div>
+                </div>
+                <ul className="mt-2.5 pt-2 border-t border-[#01A684]/20 space-y-1 text-xs text-[#181b2b]">
+                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Akses Semua Fitur Tanpa Batasan</li>
+                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Tanpa Biaya Tersembunyi</li>
+                </ul>
+              </div>
+
               {/* Paket 1: Starter */}
               <div 
                 onClick={() => setSelectedPlan('starter')}
@@ -249,7 +294,7 @@ function RegisterPlan() {
               </div>
             </div>
 
-            {/* Tombol Aksi Lanjut ke Step 3 */}
+            {/* Tombol Aksi Lanjut */}
             <div className="mt-6 flex items-center gap-3">
               <button 
                 type="button" 
@@ -264,7 +309,7 @@ function RegisterPlan() {
                 onClick={handleNext}
                 className="flex-1 py-3.5 px-4 rounded-xl bg-[#01A684] hover:bg-[#008769] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer border-0"
               >
-                <span>Lanjutkan ke Step 3</span>
+                <span>{selectedPlan === 'free_trial' ? 'Mulai Uji Coba Gratis' : 'Lanjutkan ke Pembayaran'}</span>
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
