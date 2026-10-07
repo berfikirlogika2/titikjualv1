@@ -14,7 +14,7 @@ function RegisterPayment() {
   });
 
   useEffect(() => {
-    // Ambil data pilihan dari localStorage yang disimpan di halaman Plan
+    // Ambil data pilihan dari localStorage
     const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
     const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
     const savedPrice = localStorage.getItem('totalPrice');
@@ -40,7 +40,7 @@ function RegisterPayment() {
       price: savedPrice ? Number(savedPrice) : defaultPrice
     });
 
-    // Load Midtrans Snap Script secara dinamis standar
+    // Load Midtrans Snap Script
     const midtransScriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js'; 
     const myClientKey = 'Mid-client-QYOPB6cvl1hbPgMW';
 
@@ -69,10 +69,10 @@ function RegisterPayment() {
         }
       };
 
-      // 2. Buat order_id yang unik standar
+      // 2. Buat order_id yang unik
       const uniqueOrderId = `TITIKJUAL-${currentUser.id}-${Date.now()}`;
 
-      // 3. Panggil helper transaksi Midtrans standar (tanpa filter khusus parameter pembayaran)
+      // 3. Panggil backend untuk membuat transaksi Midtrans standar
       const data = await createMidtransTransaction({
         order_id: uniqueOrderId,
         gross_amount: planDetails.price,
@@ -91,7 +91,7 @@ function RegisterPayment() {
 
       const snapToken = data.token;
 
-      // 4. Buka Midtrans Snap Pop-up standar
+      // 4. Buka Midtrans Snap Pop-up dengan opsi pembayaran normal
       window.snap.pay(snapToken, {
         onSuccess: function (result) {
           localStorage.setItem('paymentResult', JSON.stringify(result));
@@ -128,7 +128,7 @@ function RegisterPayment() {
             type="button"
             onClick={() => navigate(-1)}
             aria-label="Kembali" 
-            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center transition-transform active:scale-90 border-0 cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/35 backdrop-blur-md flex items-center justify-center transition-transform active:scale-90 border-0 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
