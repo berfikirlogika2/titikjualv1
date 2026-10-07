@@ -40,7 +40,7 @@ function RegisterPayment() {
       price: savedPrice ? Number(savedPrice) : defaultPrice
     });
 
-    // Load Midtrans Snap Script secara dinamis
+    // Load Midtrans Snap Script secara dinamis standar
     const midtransScriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js'; 
     const myClientKey = 'Mid-client-QYOPB6cvl1hbPgMW';
 
@@ -58,8 +58,6 @@ function RegisterPayment() {
     try {
       // 1. Ambil user aktif dari sesi Supabase
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // 2. Ambil email dari localStorage pendaftaran jika sesi auth belum terbentuk sempurna
       const registeredEmail = localStorage.getItem('regEmail');
 
       const currentUser = user || {
@@ -71,14 +69,15 @@ function RegisterPayment() {
         }
       };
 
-      // 3. Buat order_id yang unik dan dinamis berdasarkan waktu saat ini agar tidak menggunakan data cache lama
+      // 2. Buat order_id yang unik standar
       const uniqueOrderId = `TITIKJUAL-${currentUser.id}-${Date.now()}`;
 
-      // 4. Panggil helper transaksi Midtrans dengan data dinamis terbaru
+      // 3. Panggil helper transaksi Midtrans standar (tanpa filter khusus parameter pembayaran)
       const data = await createMidtransTransaction({
         order_id: uniqueOrderId,
         gross_amount: planDetails.price,
         item_details: {
+          id: planDetails.key,
           name: `${planDetails.name} (${planDetails.cycle === 'yearly' ? 'Tahunan' : 'Bulanan'})`,
           price: planDetails.price,
           quantity: 1
@@ -92,7 +91,7 @@ function RegisterPayment() {
 
       const snapToken = data.token;
 
-      // 5. Buka Midtrans Snap Pop-up
+      // 4. Buka Midtrans Snap Pop-up standar
       window.snap.pay(snapToken, {
         onSuccess: function (result) {
           localStorage.setItem('paymentResult', JSON.stringify(result));
@@ -214,7 +213,7 @@ function RegisterPayment() {
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#01A684] text-xl mt-0.5">info</span>
                 <p className="text-xs text-[#181b2b] leading-relaxed">
-                  Pembayaran diproses secara instan menggunakan <strong>QRIS</strong>. Sistem akan otomatis mengaktifkan akun Anda setelah pembayaran berhasil.
+                  Pembayaran diproses secara aman menggunakan <strong>Midtrans Snap</strong>. Selesaikan transaksi untuk langsung mengaktifkan akun Anda.
                 </p>
               </div>
             </div>
