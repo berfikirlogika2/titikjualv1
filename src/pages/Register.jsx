@@ -35,7 +35,7 @@ function Register() {
     setLoading(true);
 
     try {
-      // Pendaftaran akun via Supabase Auth tanpa memicu verifikasi email eksternal
+      // 1. Pendaftaran akun via Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -51,11 +51,33 @@ function Register() {
 
       if (error) throw error;
 
+      // 2. Simpan juga secara eksplisit ke tabel database Anda (Contoh: tabel 'profiles')
+      // Pastikan Anda sudah membuat tabel bernama 'profiles' di Supabase Table Editor
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id, // Menghubungkan ID dengan auth.users
+              full_name: formData.fullName,
+              username: formData.username,
+              email: formData.email,
+              role: formData.role,
+              phone: formData.phone,
+            }
+          ]);
+
+        if (profileError) {
+          console.error('Gagal menyimpan ke tabel profiles:', profileError.message);
+          // Anda bisa memutuskan apakah ingin melempar error atau tetap melangkah ke halaman berikutnya
+        }
+      }
+
       // Simpan email ke localStorage untuk simulasi
       localStorage.setItem('regEmail', formData.email);
       alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi simulasi.');
       
-      // Arahkan ke halaman simulasi OTP yang sudah kita sesuaikan
+      // Arahkan ke halaman simulasi OTP
       navigate('/register-otp');
 
     } catch (error) {
