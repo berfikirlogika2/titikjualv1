@@ -24,7 +24,7 @@ function RegisterPayment() {
 
     if (savedPlan === 'starter') {
       planName = 'Paket Starter';
-      defaultPrice = savedCycle === 'yearly' ? 1000000 : 100000; // Sesuaikan harga paket Anda
+      defaultPrice = savedCycle === 'yearly' ? 1000000 : 100000; 
     } else if (savedPlan === 'growth') {
       planName = 'Paket Growth';
       defaultPrice = savedCycle === 'yearly' ? 2500000 : 250000;
@@ -71,9 +71,12 @@ function RegisterPayment() {
         }
       };
 
-      // 3. Panggil helper transaksi Midtrans dengan data dinamis
+      // 3. Buat order_id yang unik dan dinamis berdasarkan waktu saat ini agar tidak menggunakan data cache lama
+      const uniqueOrderId = `TITIKJUAL-${currentUser.id}-${Date.now()}`;
+
+      // 4. Panggil helper transaksi Midtrans dengan data dinamis terbaru
       const data = await createMidtransTransaction({
-        order_id: `TITIKJUAL-${currentUser.id}-${Date.now()}`,
+        order_id: uniqueOrderId,
         gross_amount: planDetails.price,
         item_details: {
           name: `${planDetails.name} (${planDetails.cycle === 'yearly' ? 'Tahunan' : 'Bulanan'})`,
@@ -89,7 +92,7 @@ function RegisterPayment() {
 
       const snapToken = data.token;
 
-      // 4. Buka Midtrans Snap Pop-up
+      // 5. Buka Midtrans Snap Pop-up
       window.snap.pay(snapToken, {
         onSuccess: function (result) {
           localStorage.setItem('paymentResult', JSON.stringify(result));
@@ -211,7 +214,7 @@ function RegisterPayment() {
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#01A684] text-xl mt-0.5">info</span>
                 <p className="text-xs text-[#181b2b] leading-relaxed">
-                  Anda dapat membayar melalui <strong>QRIS, Virtual Account, atau E-Wallet</strong>. Sistem akan otomatis mengaktifkan akun Anda setelah pembayaran berhasil.
+                  Pembayaran diproses secara instan menggunakan <strong>QRIS</strong>. Sistem akan otomatis mengaktifkan akun Anda setelah pembayaran berhasil.
                 </p>
               </div>
             </div>
