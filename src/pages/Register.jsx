@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 function Register() {
@@ -7,6 +7,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false); // State untuk checkbox S&K
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -26,6 +27,10 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      alert('Anda harus menyetujui Syarat & Ketentuan serta Kebijakan Privasi terlebih dahulu.');
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       alert('Password dan Konfirmasi Password tidak cocok!');
       return;
@@ -34,7 +39,7 @@ function Register() {
     setLoading(true);
 
     try {
-      // 1. Pendaftaran akun via Supabase Auth dengan role otomatis 'owner'
+      // 1. Pendaftaran akun via Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -42,7 +47,7 @@ function Register() {
           data: {
             full_name: formData.fullName,
             username: formData.username,
-            role: 'owner', // Role dikunci otomatis menjadi owner
+            role: 'owner',
             phone: formData.phone,
           }
         }
@@ -60,9 +65,9 @@ function Register() {
               full_name: formData.fullName,
               username: formData.username,
               email: formData.email,
-              role: 'owner', // Role dikunci otomatis menjadi owner
+              role: 'owner',
               phone: formData.phone,
-              owner_id: data.user.id // Owner menjadi induk bagi dirinya sendiri / referensi data utamanya
+              owner_id: data.user.id
             }
           ]);
 
@@ -71,11 +76,8 @@ function Register() {
         }
       }
 
-      // Simpan email ke localStorage untuk simulasi
       localStorage.setItem('regEmail', formData.email);
-      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi simulasi.');
-      
-      // Arahkan ke halaman simulasi OTP
+      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi.');
       navigate('/register-otp');
 
     } catch (error) {
@@ -157,7 +159,7 @@ function Register() {
 
             <form className="flex flex-col gap-5 w-full" onSubmit={handleSubmit}>
               
-              {/* Nama Lengkap Field */}
+              {/* Nama Lengkap */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="fullName">Nama Lengkap</label>
                 <div className="relative flex items-center">
@@ -175,7 +177,7 @@ function Register() {
                 </div>
               </div>
 
-              {/* Nama Pengguna (Username) Field */}
+              {/* Username */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="username">Nama Pengguna (Username)</label>
                 <div className="relative flex items-center">
@@ -193,7 +195,7 @@ function Register() {
                 </div>
               </div>
 
-              {/* Email Aktif Field */}
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="email">Email Aktif</label>
                 <div className="relative flex items-center">
@@ -209,10 +211,9 @@ function Register() {
                     type="email" 
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Gunakan email aktif untuk login berikutnya.</p>
               </div>
 
-              {/* Nomor Handphone Field */}
+              {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="phone">Nomor Handphone (WhatsApp)</label>
                 <div className="relative flex items-center">
@@ -232,7 +233,7 @@ function Register() {
 
               <div className="w-full border-t border-gray-100 my-2"></div>
 
-              {/* Password Baru Field */}
+              {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="password">Password Baru</label>
                 <div className="relative flex items-center">
@@ -257,7 +258,7 @@ function Register() {
                 </div>
               </div>
 
-              {/* Konfirmasi Password Field */}
+              {/* Confirm Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="confirmPassword">Konfirmasi Password</label>
                 <div className="relative flex items-center">
@@ -280,6 +281,31 @@ function Register() {
                     <span className="material-symbols-outlined text-xl">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
                   </button>
                 </div>
+              </div>
+
+              {/* CHECKBOX SYARAT & KETENTUAN */}
+              <div className="flex items-start gap-3 mt-2">
+                <input 
+                  type="checkbox" 
+                  id="terms" 
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 accent-[#00A482] rounded border-gray-300 cursor-pointer"
+                  required
+                />
+                <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
+                  Saya menyatakan bahwa data yang diisi benar dan saya menyetujui{' '}
+                  <span 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/terms');
+                    }}
+                    className="text-[#01A684] font-semibold hover:underline"
+                  >
+                    Syarat & Ketentuan
+                  </span>{' '}
+                  serta Kebijakan Privasi Penggunaan Aplikasi Titik Jual.
+                </label>
               </div>
 
               <div className="mt-4">
@@ -310,7 +336,7 @@ function Register() {
             </div>
           </div>
 
-          {/* Info Section */}
+          {/* Footer Info */}
           <div className="flex flex-col gap-6 mt-4">
             <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center text-center">
               <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 text-[#01A684]">
