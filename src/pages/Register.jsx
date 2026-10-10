@@ -12,7 +12,6 @@ function Register() {
     fullName: '',
     username: '',
     email: '',
-    role: '',
     phone: '',
     password: '',
     confirmPassword: ''
@@ -35,7 +34,7 @@ function Register() {
     setLoading(true);
 
     try {
-      // 1. Pendaftaran akun via Supabase Auth
+      // 1. Pendaftaran akun via Supabase Auth dengan role otomatis 'owner'
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -43,7 +42,7 @@ function Register() {
           data: {
             full_name: formData.fullName,
             username: formData.username,
-            role: formData.role,
+            role: 'owner', // Role dikunci otomatis menjadi owner
             phone: formData.phone,
           }
         }
@@ -51,25 +50,24 @@ function Register() {
 
       if (error) throw error;
 
-      // 2. Simpan juga secara eksplisit ke tabel database Anda (Contoh: tabel 'profiles')
-      // Pastikan Anda sudah membuat tabel bernama 'profiles' di Supabase Table Editor
+      // 2. Simpan juga ke tabel 'profiles' di Supabase
       if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
           .insert([
             {
-              id: data.user.id, // Menghubungkan ID dengan auth.users
+              id: data.user.id,
               full_name: formData.fullName,
               username: formData.username,
               email: formData.email,
-              role: formData.role,
+              role: 'owner', // Role dikunci otomatis menjadi owner
               phone: formData.phone,
+              owner_id: data.user.id // Owner menjadi induk bagi dirinya sendiri / referensi data utamanya
             }
           ]);
 
         if (profileError) {
           console.error('Gagal menyimpan ke tabel profiles:', profileError.message);
-          // Anda bisa memutuskan apakah ingin melempar error atau tetap melangkah ke halaman berikutnya
         }
       }
 
@@ -118,7 +116,7 @@ function Register() {
         
         {/* Registration Progress Wrapper */}
         <div className="w-full flex flex-col gap-2 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Buat Akun Baru</h2>
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Buat Akun Owner</h2>
           <p className="text-sm text-gray-500 text-center max-w-md mx-auto">
             Mulai kelola bisnis dan outlet Anda dengan lebih mudah. Lengkapi data diri untuk memulai.
           </p>
@@ -153,8 +151,8 @@ function Register() {
         <div className="flex flex-col gap-8 w-full max-w-lg mx-auto">
           <div className="flex flex-col gap-6 w-full">
             <div className="text-center md:text-left">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Informasi Pribadi</h3>
-              <p className="text-sm text-gray-500">Data ini digunakan untuk keperluan akun admin utama Titik Jual Anda.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Informasi Pemilik Usaha (Owner)</h3>
+              <p className="text-sm text-gray-500">Data ini digunakan untuk akun admin utama/pemilik bisnis Titik Jual Anda.</p>
             </div>
 
             <form className="flex flex-col gap-5 w-full" onSubmit={handleSubmit}>
@@ -212,29 +210,6 @@ function Register() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">Gunakan email aktif untuk login berikutnya.</p>
-              </div>
-
-              {/* Pilih Peran (Role) Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="role">Pilih Peran (Role)</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">badge</span>
-                  <select 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 pr-10 text-sm text-gray-900 appearance-none focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200 cursor-pointer" 
-                    id="role" 
-                    name="role" 
-                    value={formData.role}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option disabled value="">Pilih peran Anda</option>
-                    <option value="owner">Owner (Pemilik)</option>
-                    <option value="manager">Manager</option>
-                    <option value="kasir">Kasir</option>
-                    <option value="staff_toko">Staff Toko</option>
-                  </select>
-                  <span className="material-symbols-outlined absolute right-4 text-gray-400 pointer-events-none">expand_more</span>
-                </div>
               </div>
 
               {/* Nomor Handphone Field */}
