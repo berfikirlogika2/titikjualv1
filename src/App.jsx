@@ -1,13 +1,15 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';                 
-import LoginForm from './pages/LoginForm';        
+import LoginForm from './pages/Loginform';        
 import Register from './pages/Register';          
 import RegisterOTP from './pages/RegisterOTP';    
 import RegisterPlan from './pages/RegisterPlan';       
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
-import TermsAndConditions from './pages/TermsAndConditions'; // <-- BARIS BARU DITAMBAHKAN
+import TermsAndConditions from './pages/TermsAndConditions'; 
+import CashierDashboard from './pages/CashierDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import OwnerLaporan from './pages/OwnerLaporan';
 import OwnerStaf from './pages/OwnerStaf';
@@ -35,6 +37,10 @@ function App() {
         <Route path="/register-payment" element={<RegisterPayment />} />
         <Route path="/register-success" element={<RegisterSuccess />} />
         
+        {/* Dashboard Berdasarkan Role */}
+        <Route path="/cashier-pos" element={<CashierDashboard />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+
         {/* Modul Owner */}
         <Route path="/owner-dashboard" element={<OwnerDashboardPage />} />
         <Route path="/owner/laporan" element={<OwnerLaporan />} />
