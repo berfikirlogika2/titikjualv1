@@ -1,15 +1,55 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Store } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 function RegisterSuccess() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Pastikan status langganan terupdate di Supabase saat halaman sukses dimuat
+    const updateActivationStatus = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const savedPlan = localStorage.getItem('selectedPlan') || 'free_trial';
+          const savedCycle = localStorage.getItem('billingCycle') || (savedPlan === 'free_trial' ? 'trial' : 'monthly');
+          
+          // Tentukan masa aktif (Free trial 14 hari, bulanan 30 hari, tahunan 365 hari)
+          let daysToAdd = 14;
+          if (savedPlan !== 'free_trial') {
+            daysToAdd = savedCycle === 'yearly' ? 365 : 30;
+          }
+
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+          // Update status ke tabel profiles di Supabase
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_plan: savedPlan,
+              billing_cycle: savedCycle,
+              subscription_status: 'active',
+              subscription_expires_at: expiryDate.toISOString()
+            })
+            .eq('id', user.id);
+        }
+      } catch (err) {
+        console.error('Gagal memperbarui status aktif di database:', err);
+      }
+    };
+
+    updateActivationStatus();
+  }, []);
+
   const handleGoToDashboard = () => {
-    // Bersihkan data sementara pendaftaran di localStorage jika diperlukan
+    // Bersihkan data sementara pendaftaran di localStorage
     localStorage.removeItem('regEmail');
     localStorage.removeItem('selectedPlan');
-    localStorage.removeItem('paymentMethod');
+    localStorage.removeItem('billingCycle');
+    localStorage.removeItem('totalPrice');
+    localStorage.removeItem('paymentResult');
 
     // Masuk ke dashboard owner
     navigate('/owner-dashboard');
@@ -25,7 +65,7 @@ function RegisterSuccess() {
         </div>
 
         {/* Judul & Deskripsi */}
-        <h1 className="text-2xl font-bold text-[#181b2b] mb-2">Pembayaran Berhasil!</h1>
+        <h1 className="text-2xl font-bold text-[#181b2b] mb-2">Aktivasi Berhasil!</h1>
         <p className="text-sm text-[#86899B] mb-6">
           Selamat! Langganan paket dan akun <span className="font-semibold text-[#181b2b]">Titik Jual</span> Anda telah aktif. Outlet Anda siap digunakan untuk mengelola transaksi.
         </p>
@@ -43,6 +83,7 @@ function RegisterSuccess() {
 
         {/* Tombol Menuju Dashboard */}
         <button 
+          type="button"
           onClick={handleGoToDashboard}
           className="w-full bg-[#00A482] hover:opacity-90 active:scale-[0.98] transition-all text-white py-4 font-bold rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-md border-0"
         >

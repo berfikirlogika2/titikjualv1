@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient'; // Pastikan path import supabase sudah benar sesuai struktur folder Anda
 
 function RegisterPlan() {
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState('free_trial'); // Default ke free trial 2 minggu
-  // State untuk billing cycle: 'monthly' atau 'yearly' (hanya berlaku untuk paket berbayar)
-  const [billingCycle, setBillingCycle] = useState('monthly');
+  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' atau 'yearly'
+  const [loading, setLoading] = useState(false);
 
   // Harga dasar per bulan untuk paket berbayar
   const prices = {
@@ -27,16 +28,50 @@ function RegisterPlan() {
     return baseMonthly;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    const calculatedPrice = getCalculatedPrice(selectedPlan);
+    setLoading(true);
+
+    // 1. Simpan sementara ke localStorage untuk cadangan sesi / halaman pembayaran
     localStorage.setItem('selectedPlan', selectedPlan);
     localStorage.setItem('billingCycle', billingCycle);
-    localStorage.setItem('totalPrice', getCalculatedPrice(selectedPlan));
+    localStorage.setItem('totalPrice', calculatedPrice);
 
+    try {
+      // 2. Ambil user yang sedang aktif saat ini dari Supabase Auth
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Hitung masa aktif (free_trial 14 hari, bulanan 30 hari, tahunan 365 hari)
+        const daysToAdd = selectedPlan === 'free_trial' ? 14 : (billingCycle === 'yearly' ? 365 : 30);
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+        // 3. Update data paket langsung ke tabel profiles di Supabase
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_plan: selectedPlan,
+            billing_cycle: billingCycle,
+            subscription_status: selectedPlan === 'free_trial' ? 'active' : 'pending_payment',
+            subscription_expires_at: expiryDate.toISOString()
+          })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.error('Gagal memperbarui paket di database:', updateError.message);
+        }
+      }
+    } catch (err) {
+      console.error('Terjadi kesalahan saat menyimpan paket:', err);
+    } finally {
+      setLoading(false);
+    }
+
+    // 4. Navigasi sesuai pilihan paket
     if (selectedPlan === 'free_trial') {
-      // Jika pilih free trial 2 minggu, langsung ke halaman sukses/dashboard tanpa bayar
       navigate('/register-success');
     } else {
-      // Jika pilih paket berbayar, lanjut ke step pembayaran Midtrans
       navigate('/register-payment');
     }
   };
@@ -49,6 +84,7 @@ function RegisterPlan() {
         {/* Header Hijau Solid Titik Jual */}
         <header className="pt-8 pb-7 px-6 flex items-center justify-between relative text-white">
           <button 
+            type="button"
             onClick={() => navigate(-1)}
             aria-label="Kembali" 
             className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center transition-transform active:scale-90 border-0 cursor-pointer"
@@ -151,7 +187,7 @@ function RegisterPlan() {
             {/* Pilihan Paket Bento Cards */}
             <div className="space-y-3">
               
-              {/* Paket 0: Free Trial 2 Minggu (Baru Ditambahkan) */}
+              {/* Paket 0: Free Trial 2 Minggu */}
               <div 
                 onClick={() => setSelectedPlan('free_trial')}
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
@@ -174,12 +210,8 @@ function RegisterPlan() {
                     <p className="text-xs text-[#86899B] mt-1">Coba seluruh fitur premium tanpa batasan selama 14 hari</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-[#01A684]">
-                      Rp 0
-                    </span>
-                    <span className="text-[10px] text-[#86899B] block">
-                      Gratis 14 Hari
-                    </span>
+                    <span className="text-sm font-bold text-[#01A684]">Rp 0</span>
+                    <span className="text-[10px] text-[#86899B] block">Gratis 14 Hari</span>
                   </div>
                 </div>
                 <ul className="mt-2.5 pt-2 border-t border-[#01A684]/20 space-y-1 text-xs text-[#181b2b]">
@@ -254,9 +286,9 @@ function RegisterPlan() {
                 </div>
                 <ul className="mt-2.5 pt-2 border-t border-[#01A684]/20 space-y-1 text-xs text-[#181b2b]">
                   <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Maksimal 3 Cabang Outlet</li>
-                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Hingga 10 Akun Staf & Manajemen Shift</li>
+                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Hingga 10 Akun Staf & Shift</li>
                   <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Bahan Baku & HPP Resep Terintegrasi</li>
-                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Laporan Finansial, Komisi, & Pajak PBJT</li>
+                  <li className="flex items-center gap-1.5 font-medium"><span className="material-symbols-outlined text-[#01A684] text-[15px]">check_circle</span> Laporan Finansial & Pajak PBJT</li>
                 </ul>
               </div>
 
@@ -307,9 +339,10 @@ function RegisterPlan() {
               <button 
                 type="button" 
                 onClick={handleNext}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-[#01A684] hover:bg-[#008769] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer border-0"
+                disabled={loading}
+                className="flex-1 py-3.5 px-4 rounded-xl bg-[#01A684] hover:bg-[#008769] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer border-0 disabled:opacity-50"
               >
-                <span>{selectedPlan === 'free_trial' ? 'Mulai Uji Coba Gratis' : 'Lanjutkan ke Pembayaran'}</span>
+                <span>{loading ? 'Menyimpan...' : (selectedPlan === 'free_trial' ? 'Mulai Uji Coba Gratis' : 'Lanjutkan ke Pembayaran')}</span>
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>

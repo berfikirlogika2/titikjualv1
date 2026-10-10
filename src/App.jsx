@@ -28,7 +28,7 @@ function App() {
         <Route path="/login-form" element={<LoginForm />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register-otp" element={<RegisterOTP />} />
-        <Route path="/terms" element={<TermsAndConditions />} /> {/* <-- RUTE SYARAT & KETENTUAN */}
+        <Route path="/terms" element={<TermsAndConditions />} /> 
         
         {/* Alur Lanjutan Pendaftaran */}
         <Route path="/register-plan" element={<RegisterPlan />} />

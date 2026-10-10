@@ -24,13 +24,13 @@ function RegisterPayment() {
 
     if (savedPlan === 'starter') {
       planName = 'Paket Starter';
-      defaultPrice = savedCycle === 'yearly' ? 1000000 : 100000; 
+      defaultPrice = savedCycle === 'yearly' ? 1350000 : 150000; 
     } else if (savedPlan === 'growth') {
       planName = 'Paket Growth';
-      defaultPrice = savedCycle === 'yearly' ? 2500000 : 250000;
+      defaultPrice = savedCycle === 'yearly' ? 2700000 : 250000;
     } else if (savedPlan === 'enterprise' || savedPlan === 'pro') {
       planName = 'Pro Enterprise';
-      defaultPrice = savedCycle === 'yearly' ? 5000000 : 500000;
+      defaultPrice = savedCycle === 'yearly' ? 4860000 : 450000;
     }
 
     setPlanDetails({
@@ -91,10 +91,38 @@ function RegisterPayment() {
 
       const snapToken = data.token;
 
-      // 4. Buka Midtrans Snap Pop-up dengan opsi pembayaran normal
+      // 4. Buka Midtrans Snap Pop-up dengan pembaruan database otomatis pada onSuccess
       window.snap.pay(snapToken, {
-        onSuccess: function (result) {
+        onSuccess: async function (result) {
           localStorage.setItem('paymentResult', JSON.stringify(result));
+          
+          try {
+            // Perbarui status langganan di Supabase setelah pembayaran sukses
+            const { data: { user: activeUser } } = await supabase.auth.getUser();
+            if (activeUser) {
+              const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
+              const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
+              
+              // Hitung masa aktif (bulanan = 30 hari, tahunan = 365 hari)
+              const daysToAdd = savedCycle === 'yearly' ? 365 : 30;
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+              await supabase
+                .from('profiles')
+                .update({
+                  subscription_plan: savedPlan,
+                  billing_cycle: savedCycle,
+                  subscription_status: 'active',
+                  subscription_expires_at: expiryDate.toISOString(),
+                  last_payment_id: result.transaction_id || uniqueOrderId
+                })
+                .eq('id', activeUser.id);
+            }
+          } catch (dbErr) {
+            console.error('Gagal memperbarui status database setelah pembayaran:', dbErr);
+          }
+
           navigate('/register-success');
         },
         onPending: function (result) {
