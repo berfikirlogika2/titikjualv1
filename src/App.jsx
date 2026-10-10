@@ -8,11 +8,15 @@ import RegisterPlan from './pages/RegisterPlan';
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
 import TermsAndConditions from './pages/TermsAndConditions'; 
-import CashierDashboard from './pages/CashierDashboard';
-import AdminDashboard from './pages/AdminDashboard';
+import CashierDashboard from './pages/CashierDashboard'; // Modul Kasir
+import AdminDashboard from './pages/AdminDashboard';         
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import OwnerLaporan from './pages/OwnerLaporan';
+import OwnerSemuaTransaksi from './pages/OwnerSemuaTransaksi'; 
 import OwnerStaf from './pages/OwnerStaf';
+import OwnerStafDetail from './pages/OwnerStafDetail';       // <-- Tambahan Halaman Detail Staf
+import OwnerRegisterStaff from './pages/OwnerRegisterStaff'; // <-- Tambahan Halaman Tambah Staf
+import OwnerRegisterAkun from './pages/OwnerRegisterAkun';   // <-- Tambahan Halaman Akun Login Kasir/Admin
 import DashboardKinerjaStaf from './pages/DashboardKinerjaStaf';
 import OwnerBahan from './pages/OwnerBahan';
 import OwnerPajak from './pages/OwnerPajak';
@@ -37,14 +41,20 @@ function App() {
         <Route path="/register-payment" element={<RegisterPayment />} />
         <Route path="/register-success" element={<RegisterSuccess />} />
         
-        {/* Dashboard Berdasarkan Role */}
-        <Route path="/cashier-pos" element={<CashierDashboard />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        {/* Modul Cashier */}
+        <Route path="/cashier-dashboard" element={<CashierDashboard />} />   
+
+        {/* Dashboard Admin */}
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />     
 
         {/* Modul Owner */}
         <Route path="/owner-dashboard" element={<OwnerDashboardPage />} />
         <Route path="/owner/laporan" element={<OwnerLaporan />} />
+        <Route path="/owner/transaksi" element={<OwnerSemuaTransaksi />} />
         <Route path="/owner/staf" element={<OwnerStaf />} />
+        <Route path="/owner/staf/detail/:id" element={<OwnerStafDetail />} />       {/* <-- Rute Detail Staf */}
+        <Route path="/owner/register-staff" element={<OwnerRegisterStaff />} />     {/* <-- Rute Tambah Staf */}
+        <Route path="/owner/register-akun" element={<OwnerRegisterAkun />} />       {/* <-- Rute Buat Akun */}
         <Route path="/owner/kinerja-staf" element={<DashboardKinerjaStaf />} />
         <Route path="/owner/bahan" element={<OwnerBahan />} />
         <Route path="/owner/pajak" element={<OwnerPajak />} />
