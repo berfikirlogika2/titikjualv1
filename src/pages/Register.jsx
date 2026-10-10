@@ -28,7 +28,7 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!agreedToTerms) {
-      alert('Anda harus menyetujui Syarat & Ketentuan serta Kebijakan Privasi terlebih dahulu.');
+      alert('Anda harus menyetujui Syarat & Ketentuan terlebih dahulu.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -39,7 +39,7 @@ function Register() {
     setLoading(true);
 
     try {
-      // 1. Pendaftaran akun via Supabase Auth
+      // Pendaftaran via Auth (Trigger database akan otomatis mengisi tabel profiles)
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -52,6 +52,19 @@ function Register() {
           }
         }
       });
+
+      if (error) throw error;
+
+      localStorage.setItem('regEmail', formData.email);
+      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi.');
+      navigate('/register-otp');
+
+    } catch (error) {
+      alert('Gagal Mendaftar: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
       if (error) throw error;
 
