@@ -7,6 +7,7 @@ import RegisterOTP from './pages/RegisterOTP';
 import RegisterPlan from './pages/RegisterPlan';       
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
+import TermsAndConditions from './pages/TermsAndConditions'; // <-- BARIS BARU DITAMBAHKAN
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import OwnerLaporan from './pages/OwnerLaporan';
 import OwnerStaf from './pages/OwnerStaf';
@@ -27,6 +28,7 @@ function App() {
         <Route path="/login-form" element={<LoginForm />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register-otp" element={<RegisterOTP />} />
+        <Route path="/terms" element={<TermsAndConditions />} /> {/* <-- RUTE SYARAT & KETENTUAN */}
         
         {/* Alur Lanjutan Pendaftaran */}
         <Route path="/register-plan" element={<RegisterPlan />} />
