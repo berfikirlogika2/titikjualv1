@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 function Register() {
@@ -7,7 +7,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false); // State untuk checkbox S&K
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -39,7 +39,6 @@ function Register() {
     setLoading(true);
 
     try {
-      // Pendaftaran via Auth (Trigger database akan otomatis mengisi tabel profiles)
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -54,40 +53,6 @@ function Register() {
       });
 
       if (error) throw error;
-
-      localStorage.setItem('regEmail', formData.email);
-      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi.');
-      navigate('/register-otp');
-
-    } catch (error) {
-      alert('Gagal Mendaftar: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-      if (error) throw error;
-
-      // 2. Simpan juga ke tabel 'profiles' di Supabase
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              full_name: formData.fullName,
-              username: formData.username,
-              email: formData.email,
-              role: 'owner',
-              phone: formData.phone,
-              owner_id: data.user.id
-            }
-          ]);
-
-        if (profileError) {
-          console.error('Gagal menyimpan ke tabel profiles:', profileError.message);
-        }
-      }
 
       localStorage.setItem('regEmail', formData.email);
       alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi.');
