@@ -56,23 +56,22 @@ function RegisterPayment() {
   const handlePay = async () => {
     setLoading(true);
     try {
-      // 1. Ambil user aktif dari sesi Supabase
-      const { data: { user } } = await supabase.auth.getUser();
-      const registeredEmail = localStorage.getItem('regEmail');
+      // 1. Ambil data dari localStorage (menggantikan supabase.auth)
+      const ownerId = localStorage.getItem('owner_id') || `toko_${Math.floor(100 + Math.random() * 900)}`;
+      const registeredEmail = localStorage.getItem('regEmail') || 'owner@titikjual.com';
+      const ownerName = localStorage.getItem('nama_lengkap') || 'Owner Titik Jual';
 
-      const currentUser = user || {
-        id: 'user-' + Date.now(),
-        email: registeredEmail || 'owner@titikjual.com',
-        user_metadata: {
-          full_name: 'Owner Titik Jual',
-          phone: '081234567890'
-        }
+      const currentUser = {
+        id: ownerId,
+        email: registeredEmail,
+        full_name: ownerName,
+        phone: '081234567890'
       };
 
       // 2. Buat order_id yang unik
       const uniqueOrderId = `TITIKJUAL-${currentUser.id}-${Date.now()}`;
 
-      // 3. Panggil backend untuk membuat transaksi Midtrans standar
+      // 3. Panggil backend Edge Function Midtrans
       const data = await createMidtransTransaction({
         order_id: uniqueOrderId,
         gross_amount: planDetails.price,
@@ -84,41 +83,38 @@ function RegisterPayment() {
         },
         customer: {
           email: currentUser.email,
-          full_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
-          phone: currentUser.user_metadata?.phone || '08123456789'
+          full_name: currentUser.full_name,
+          phone: currentUser.phone
         }
       });
 
       const snapToken = data.token;
 
-      // 4. Buka Midtrans Snap Pop-up dengan pembaruan database otomatis pada onSuccess
+      // 4. Buka Midtrans Snap Pop-up
       window.snap.pay(snapToken, {
         onSuccess: async function (result) {
           localStorage.setItem('paymentResult', JSON.stringify(result));
           
           try {
-            // Perbarui status langganan di Supabase setelah pembayaran sukses
-            const { data: { user: activeUser } } = await supabase.auth.getUser();
-            if (activeUser) {
-              const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
-              const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
-              
-              // Hitung masa aktif (bulanan = 30 hari, tahunan = 365 hari)
-              const daysToAdd = savedCycle === 'yearly' ? 365 : 30;
-              const expiryDate = new Date();
-              expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+            // Perbarui status langganan di tabel profiles berdasarkan owner_id teks
+            const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
+            const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
+            
+            const daysToAdd = savedCycle === 'yearly' ? 365 : 30;
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-              await supabase
-                .from('profiles')
-                .update({
-                  subscription_plan: savedPlan,
-                  billing_cycle: savedCycle,
-                  subscription_status: 'active',
-                  subscription_expires_at: expiryDate.toISOString(),
-                  last_payment_id: result.transaction_id || uniqueOrderId
-                })
-                .eq('id', activeUser.id);
-            }
+            await supabase
+              .from('profiles')
+              .update({
+                subscription_plan: savedPlan,
+                billing_cycle: savedCycle,
+                subscription_status: 'active',
+                subscription_expires_at: expiryDate.toISOString(),
+                last_payment_id: result.transaction_id || uniqueOrderId
+              })
+              .eq('owner_id', ownerId);
+
           } catch (dbErr) {
             console.error('Gagal memperbarui status database setelah pembayaran:', dbErr);
           }
