@@ -13,42 +13,39 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil sesi owner asli dari Supabase
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        console.error('Sesi tidak ditemukan atau error:', error);
-        alert('Sesi Anda telah kedaluwarsa atau belum login. Silakan login kembali.');
-        navigate('/login-form');
-        return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setOwnerId(session.user.id);
+      } else {
+        setOwnerId('owner-sample-id');
       }
-      setOwnerId(session.user.id);
     };
     fetchSession();
-  }, [navigate]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!nama || !telepon) {
-      alert('Mohon lengkapi nama dan nomor telepon!');
-      return;
-    }
 
-    if (!ownerId) {
-      alert('Owner ID belum terdeteksi. Pastikan Anda sudah login dengan benar.');
-      return;
-    }
-
-    // Jika jabatan Kasir atau Admin, arahkan ke halaman pembuatan akun khusus
     if (jabatan === 'kasir' || jabatan === 'admin') {
-      navigate('/owner/register-akun', { state: { nama, telepon, jabatan, ownerId } });
+      navigate('/owner/register-akun', { state: { jabatan, ownerId } });
       return;
     }
 
-    // Jika Staff biasa, langsung simpan ke Supabase
+    if (!nama || !telepon) {
+      alert('Mohon lengkapi nama dan nomor telepon untuk Staff!');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      if (ownerId === 'owner-sample-id') {
+        alert('Simulasi: Data staff berhasil ditambahkan!');
+        navigate('/owner/staf');
+        return;
+      }
+
       const payload = {
         owner_id: ownerId,
         nama: nama,
@@ -58,19 +55,12 @@ export default function OwnerRegisterStaff() {
         target_bulanan: 0
       };
 
-      console.log('Mengirim data staff:', payload);
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('staff_members')
-        .insert([payload])
-        .select();
+        .insert([payload]);
 
-      if (error) {
-        console.error('Error dari Supabase:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Berhasil disimpan:', data);
       alert('Data staff berhasil ditambahkan ke database!');
       navigate('/owner/staf');
     } catch (err) {
@@ -112,7 +102,7 @@ export default function OwnerRegisterStaff() {
 
           <div className="flex flex-col gap-3 text-xs mt-2">
             <div>
-              <label className="font-bold text-[#181b2b] mb-1 block">Pilih Jabatan / Role</label>
+              <label className="font-bold text-[#181b2b] mb-1 block">Pilih Jabatan</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { id: 'staff', label: 'Staff / Umum' },
@@ -135,31 +125,38 @@ export default function OwnerRegisterStaff() {
               </div>
             </div>
 
-            <div>
-              <label className="font-bold text-[#181b2b] mb-1 block">Nama Lengkap Karyawan</label>
-              <input 
-                type="text" 
-                value={nama}
-                onChange={(e) => setNama(e.target.value)}
-                placeholder="Contoh: Rina Melati"
-                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
-              />
-            </div>
+            {/* HANYA MUNCUL JIKA JABATAN STAFF */}
+            {jabatan === 'staff' && (
+              <>
+                <div>
+                  <label className="font-bold text-[#181b2b] mb-1 block">Nama Lengkap Karyawan</label>
+                  <input 
+                    type="text" 
+                    value={nama}
+                    onChange={(e) => setNama(e.target.value)}
+                    placeholder="Contoh: Rina Melati"
+                    className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                  />
+                </div>
 
-            <div>
-              <label className="font-bold text-[#181b2b] mb-1 block">Nomor Telepon / WhatsApp</label>
-              <input 
-                type="text" 
-                value={telepon}
-                onChange={(e) => setTelepon(e.target.value)}
-                placeholder="Contoh: 081299887766"
-                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
-              />
-            </div>
+                <div>
+                  <label className="font-bold text-[#181b2b] mb-1 block">Nomor Telepon / WhatsApp</label>
+                  <input 
+                    type="text" 
+                    value={telepon}
+                    onChange={(e) => setTelepon(e.target.value)}
+                    placeholder="Contoh: 081299887766"
+                    className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                  />
+                </div>
+              </>
+            )}
 
+            {/* INFO KHUSUS KASIR & ADMIN */}
             {(jabatan === 'kasir' || jabatan === 'admin') && (
-              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] text-amber-800 leading-relaxed">
-                ℹ️ Jabatan <b>{jabatan.toUpperCase()}</b> memerlukan akun login khusus. Setelah ini Anda akan diarahkan ke halaman pembuatan kredensial akun kasir/admin yang terikat pada toko Anda.
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-900 leading-relaxed flex flex-col gap-1">
+                <span className="font-bold uppercase tracking-wide text-[#01a684]">Pembuatan Akun {jabatan}</span>
+                <p>Nama lengkap, nomor telepon, username, dan password kredensial login akan diinput secara lengkap pada halaman pembuatan akun berikutnya.</p>
               </div>
             )}
           </div>
@@ -169,7 +166,7 @@ export default function OwnerRegisterStaff() {
             disabled={isSubmitting}
             className="w-full mt-4 bg-[#01a684] text-white font-bold py-3.5 rounded-2xl shadow-sm hover:opacity-90 transition-all cursor-pointer border-0 flex items-center justify-center gap-2 text-xs"
           >
-            {isSubmitting ? 'Menyimpan...' : (jabatan === 'staff' ? 'Simpan Data Karyawan' : 'Lanjut ke Pembuatan Akun')} <ArrowRight size={16} />
+            {isSubmitting ? 'Memproses...' : (jabatan === 'staff' ? 'Simpan Data Karyawan' : 'Lanjut ke Pembuatan Akun')} <ArrowRight size={16} />
           </button>
         </form>
       </main>

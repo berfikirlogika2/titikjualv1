@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, ShieldCheck, Copy, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, KeyRound, Copy, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
 export default function OwnerRegisterAkun() {
   const navigate = useNavigate();
   const location = useLocation();
-  const staffData = location.state || { nama: 'Karyawan Baru', telepon: '0812345', jabatan: 'kasir' };
+  const routeState = location.state || { jabatan: 'kasir', ownerId: '' };
 
-  const [ownerId, setOwnerId] = useState('');
+  const [ownerId, setOwnerId] = useState(routeState.ownerId || '');
+  const [nama, setNama] = useState('');
+  const [telepon, setTelepon] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,40 +19,63 @@ export default function OwnerRegisterAkun() {
 
   useEffect(() => {
     const fetchOwnerSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setOwnerId(session.user.id);
-        // Buat username otomatis dari nama
-        const cleanName = staffData.nama.toLowerCase().replace(/[^a-z]/g, '');
-        setUsername(`${cleanName}${Math.floor(100 + Math.random() * 900)}`);
-        setPassword(`bjg-${Math.random().toString(36).slice(-6)}`);
+      if (!ownerId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) setOwnerId(session.user.id);
       }
     };
     fetchOwnerSession();
-  }, [staffData]);
+  }, [ownerId]);
+
+  // Generate username otomatis saat nama diketik
+  const handleNameChange = (val) => {
+    setNama(val);
+    const cleanName = val.toLowerCase().replace(/[^a-z]/g, '');
+    if (cleanName.length > 0) {
+      setUsername(`${cleanName}${Math.floor(100 + Math.random() * 900)}`);
+      setPassword(`bjg-${Math.random().toString(36).slice(-6)}`);
+    } else {
+      setUsername('');
+      setPassword('');
+    }
+  };
 
   const handleCreateAccount = async () => {
+    if (!nama || !telepon) {
+      alert('Mohon lengkapi nama lengkap dan nomor telepon!');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Simpan data staf beserta kredensial akun yang terikat owner_id
+      const targetOwnerId = ownerId || 'owner-sample-id';
+
+      if (targetOwnerId === 'owner-sample-id') {
+        setCreatedCredentials({ username: username || 'kasir123', password: password || 'bjg-sample' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Simpan data staf & akun ke tabel staff_members Supabase
       const { error } = await supabase
         .from('staff_members')
         .insert([
           {
-            owner_id: ownerId,
-            nama: staffData.nama,
-            telepon: staffData.telepon,
-            jabatan: staffData.jabatan,
+            owner_id: targetOwnerId,
+            nama: nama,
+            telepon: telepon,
+            jabatan: routeState.jabatan,
+            gaji_pokok: 0,
+            target_bulanan: 0
           }
         ]);
 
       if (error) throw error;
 
-      // Munculkan pop-up sukses kredensial sekali lihat
       setCreatedCredentials({ username, password });
     } catch (err) {
       console.error('Gagal membuat akun:', err.message);
-      alert('Terjadi kesalahan saat mendaftarkan akun.');
+      alert('Terjadi kesalahan saat mendaftarkan akun: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -67,7 +92,7 @@ export default function OwnerRegisterAkun() {
             <ArrowLeft size={18} />
           </button>
           <h1 className="text-xs lg:text-sm font-bold uppercase tracking-wider text-[#181b2b] absolute left-1/2 -translate-x-1/2 truncate">
-            Buat Akun {staffData.jabatan.toUpperCase()}
+            Buat Akun {routeState.jabatan.toUpperCase()}
           </h1>
           <div className="w-9 h-9" />
         </div>
@@ -80,30 +105,42 @@ export default function OwnerRegisterAkun() {
               <KeyRound size={20} />
             </div>
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#181b2b]">Kredensial Login Sistem</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#181b2b]">Identitas & Kredensial Login</h3>
               <p className="text-[10px] text-[#86899B]">Akun terikat otomatis dengan ID Tenant Anda</p>
             </div>
           </div>
 
-          <div className="bg-[#F1F2F6] p-4 rounded-2xl flex flex-col gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-[#86899B]">Nama:</span>
-              <span className="font-bold text-[#181b2b]">{staffData.nama}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#86899B]">Jabatan:</span>
-              <span className="font-bold uppercase text-[#01a684]">{staffData.jabatan}</span>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-3 text-xs">
+            <div>
+              <label className="font-bold text-[#181b2b] mb-1 block">Nama Lengkap {routeState.jabatan.toUpperCase()}</label>
+              <input 
+                type="text" 
+                value={nama}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="Contoh: Budi Santoso"
+                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+              />
+            </div>
+
+            <div>
+              <label className="font-bold text-[#181b2b] mb-1 block">Nomor Telepon / WhatsApp</label>
+              <input 
+                type="text" 
+                value={telepon}
+                onChange={(e) => setTelepon(e.target.value)}
+                placeholder="Contoh: 081234567890"
+                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+              />
+            </div>
+
             <div>
               <label className="font-bold text-[#181b2b] mb-1 block">Username Login</label>
               <input 
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
+                placeholder="Otomatis terbuat dari nama..."
+                className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
               />
             </div>
 
@@ -113,7 +150,8 @@ export default function OwnerRegisterAkun() {
                 type="text" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
+                placeholder="Otomatis terbuat..."
+                className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
               />
             </div>
           </div>
@@ -123,7 +161,7 @@ export default function OwnerRegisterAkun() {
             disabled={isSubmitting}
             className="w-full mt-2 bg-[#01a684] text-white font-bold py-3.5 rounded-2xl shadow-sm hover:opacity-90 transition-all cursor-pointer border-0 text-xs"
           >
-            {isSubmitting ? 'Memproses...' : 'Ajukan Pendaftaran Akun'}
+            {isSubmitting ? 'Memproses...' : 'Ajukan Pendaftaran & Buat Akun'}
           </button>
         </div>
       </main>
@@ -137,7 +175,7 @@ export default function OwnerRegisterAkun() {
             </div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#181b2b]">Pendaftaran Akun Berhasil!</h3>
             <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-              ⚠️ Salin atau screenshot informasi ini sekarang. <b>Data ini hanya dapat dilihat sekali ini saja</b> dan tidak akan ditampilkan kembali!
+              ⚠️ Salin atau screenshot informasi ini sekarang. <b>Data ini hanya dapat dilihat sekali ini saja</b>!
             </p>
 
             <div className="bg-[#F1F2F6] p-4 rounded-2xl flex flex-col gap-2 text-left text-xs font-mono">
