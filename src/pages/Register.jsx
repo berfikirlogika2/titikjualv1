@@ -84,7 +84,7 @@ function Register() {
       alert('Pendaftaran berhasil! Silakan pilih paket langganan Anda.');
       
       // 5. Arahkan ke halaman pemilihan paket terlebih dahulu (bukan langsung ke payment)
-      navigate('/register-payment'); // Sesuaikan dengan route halaman pemilihan paket Anda (misal: /register-paket atau /pricing)
+      navigate('/register-plan'); // Sesuaikan dengan route halaman pemilihan paket Anda (misal: /register-paket atau /pricing)
 
     } catch (error) {
       console.error('Gagal Mendaftar:', error.message);
