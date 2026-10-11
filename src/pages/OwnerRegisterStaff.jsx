@@ -1,80 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
+// Fungsi helper untuk keamanan password (hash SHA-256)
+async function hashPassword(plainPassword) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plainPassword);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default function OwnerRegisterStaff() {
   const navigate = useNavigate();
 
-  const [ownerId, setOwnerId] = useState('');
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
   const [telepon, setTelepon] = useState('');
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil owner_id langsung dari localStorage atau ambil dari profiles
-  useEffect(() => {
-    const fetchOwner = async () => {
-      // 1. Cek apakah owner_id sudah tersimpan di localStorage
-      const cachedOwnerId = localStorage.getItem('owner_id') || localStorage.getItem('user_id');
-      if (cachedOwnerId) {
-        setOwnerId(cachedOwnerId);
-        return;
-      }
-
-      // 2. Jika tidak ada, ambil dari sesi auth aktif
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        setOwnerId(session.user.id);
-        localStorage.setItem('owner_id', session.user.id);
-        return;
-      }
-
-      // 3. Jika masih kosong, ambil langsung dari tabel profiles
-      try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('id')
-          .limit(1);
-
-        if (profiles && profiles.length > 0) {
-          setOwnerId(profiles[0].id);
-          localStorage.setItem('owner_id', profiles[0].id);
-        }
-      } catch (err) {
-        console.error('Gagal mengambil profil owner:', err);
-      }
-    };
-    fetchOwner();
-  }, []);
+  // Mengambil atau membuat owner_id berbasis teks dengan format toko_3angka
+  const getOwnerId = () => {
+    let activeOwner = localStorage.getItem('owner_id');
+    if (!activeOwner) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      activeOwner = `toko_${randomNum}`;
+      localStorage.setItem('owner_id', activeOwner);
+    }
+    return activeOwner;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Dapatkan owner_id terbaru dari state atau localStorage
-    let currentOwnerId = ownerId || localStorage.getItem('owner_id') || localStorage.getItem('user_id');
+    const currentOwnerId = getOwnerId();
 
-    if (!currentOwnerId) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id')
-        .limit(1);
-
-      if (profiles && profiles.length > 0) {
-        currentOwnerId = profiles[0].id;
-        localStorage.setItem('owner_id', profiles[0].id);
-      }
-    }
-
-    if (!currentOwnerId) {
-      alert('Sesi Owner belum terdeteksi. Silakan login kembali ke akun Owner Anda.');
-      navigate('/login-form');
-      return;
-    }
-
-    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun
+    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun khusus kredensial
     if (jabatan === 'kasir' || jabatan === 'admin') {
       navigate('/owner/register-akun', { state: { jabatan, ownerId: currentOwnerId } });
       return;
@@ -88,22 +52,33 @@ export default function OwnerRegisterStaff() {
 
     setIsSubmitting(true);
     try {
+      const cleanName = nama.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6);
+      const defaultUsername = `${cleanName}${Math.floor(10 + Math.random() * 90)}`;
+      const rawPassword = `${cleanName}123`;
+      
+      // Hash password otomatis agar aman dan tidak terlihat mentah di database
+      const securePassword = await hashPassword(rawPassword);
+
       const payload = {
-        owner_id: currentOwnerId,
-        nama: nama,
-        telepon: telepon,
-        jabatan: jabatan,
-        gaji_pokok: 0,
-        target_bulanan: 0
+        id: 'usr_' + Math.random().toString(36).substr(2, 9),
+        owner_id: currentOwnerId, // Format teks: nama_toko_3angka
+        full_name: nama,
+        username: defaultUsername,
+        email: email,
+        phone: telepon,
+        role: 'staff',
+        password: securePassword, // Tersimpan ter-hash di database
+        subscription_plan: 'free_trial',
+        billing_cycle: 'monthly'
       };
 
       const { error } = await supabase
-        .from('staff_members')
+        .from('profiles')
         .insert([payload]);
 
       if (error) throw error;
 
-      alert('Data staff berhasil ditambahkan ke database!');
+      alert(`Data staff berhasil ditambahkan!\nUsername login: ${defaultUsername}\nPassword: ${rawPassword}`);
       navigate('/owner/staf');
     } catch (err) {
       console.error('Gagal menyimpan staff:', err.message);

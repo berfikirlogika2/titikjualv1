@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+
+// Fungsi helper hash password yang sama untuk mencocokkan saat login
+async function hashPassword(plainPassword) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plainPassword);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 function LoginForm() {
   const navigate = useNavigate();
@@ -7,10 +17,56 @@ function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate('/owner-dashboard');
+    if (!username || !password) {
+      alert('Mohon masukkan username dan password!');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Hash password inputan user agar cocok dengan hash di database
+      const hashedInputPassword = await hashPassword(password);
+
+      // Cek data di tabel profiles berdasarkan username dan password yang sudah di-hash
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .eq('password', hashedInputPassword)
+        .single();
+
+      if (error || !data) {
+        throw new Error('Username atau kata sandi salah!');
+      }
+
+      // Simpan sesi penting ke localStorage
+      localStorage.setItem('user_role', data.role); // 'owner', 'admin', 'kasir', 'staff'
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('nama_lengkap', data.full_name || data.nama || '');
+      
+      // Simpan owner_id berbasis teks (format: nama_toko_3angka)
+      if (data.owner_id) {
+        localStorage.setItem('owner_id', data.owner_id);
+      }
+
+      alert(`Login berhasil sebagai ${data.role.toUpperCase()}`);
+
+      // Arahkan ke halaman berdasarkan role masing-masing
+      if (data.role === 'owner' || data.role === 'admin') {
+        navigate('/owner-dashboard');
+      } else {
+        navigate('/pos'); // Halaman terminal kasir
+      }
+    } catch (err) {
+      console.error('Gagal login:', err.message);
+      alert(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -57,10 +113,10 @@ function LoginForm() {
 
         <form className="flex flex-col gap-4 w-full" onSubmit={handleSubmit}>
           
-          {/* Input Email / Username (Tanpa placeholder contoh) */}
+          {/* Input Username / Email */}
           <div className="flex flex-col gap-1.5 text-left">
             <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="username">
-              Email / Nama Pengguna
+              Nama Pengguna / Username
             </label>
             <div className="relative flex items-center">
               <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px] pointer-events-none">
@@ -71,13 +127,14 @@ function LoginForm() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                placeholder="Masukkan username..."
                 className="w-full pl-11 pr-4 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all" 
                 required
               />
             </div>
           </div>
 
-          {/* Input Password (Tanpa placeholder contoh) */}
+          {/* Input Password */}
           <div className="flex flex-col gap-1.5 text-left">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="password">
@@ -88,7 +145,7 @@ function LoginForm() {
                 href="#lupa-sandi"
                 onClick={(e) => {
                   e.preventDefault();
-                  alert('Silakan hubungi administrator untuk pemulihan kata sandi.');
+                  alert('Silakan hubungi administrator atau owner toko untuk pemulihan kata sandi.');
                 }}
               >
                 Lupa Kata Sandi?
@@ -103,6 +160,7 @@ function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Masukkan kata sandi..."
                 className="w-full pl-11 pr-11 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all" 
                 required
               />
@@ -134,10 +192,11 @@ function LoginForm() {
 
           {/* Submit Button */}
           <button 
+            disabled={isLoading}
             className="w-full bg-[#01A684] hover:bg-[#008769] text-white font-semibold py-3.5 rounded-xl shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-sm mt-2 cursor-pointer border-0" 
             type="submit"
           >
-            <span>Masuk Sekarang</span>
+            <span>{isLoading ? 'Memproses...' : 'Masuk Sekarang'}</span>
             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
           </button>
         </form>
@@ -156,7 +215,7 @@ function LoginForm() {
           <button 
             className="flex items-center justify-center gap-2 py-2.5 px-3 border border-slate-200 hover:border-slate-300 rounded-xl bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all active:scale-[0.98] cursor-pointer" 
             type="button"
-            onClick={() => navigate('/owner-dashboard')}
+            onClick={() => alert('Fitur Google SSO akan segera hadir.')}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z" fill="#EA4335"></path>
@@ -170,7 +229,7 @@ function LoginForm() {
           <button 
             className="flex items-center justify-center gap-2 py-2.5 px-3 border border-slate-200 hover:border-slate-300 rounded-xl bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all active:scale-[0.98] cursor-pointer" 
             type="button"
-            onClick={() => navigate('/owner-dashboard')}
+            onClick={() => alert('Fitur Apple ID SSO akan segera hadir.')}
           >
             <svg className="w-4 h-4 fill-slate-900" viewBox="0 0 24 24">
               <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.62-.75 1.04-1.8 0.93-2.85-.9.04-1.99.6-2.63 1.35-.57.65-1.07 1.72-.94 2.74 1.01.08 2.02-.49 2.64-1.24z"></path>

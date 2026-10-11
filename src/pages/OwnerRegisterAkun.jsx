@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Copy, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
+
+// Fungsi helper hash password aman
+async function hashPassword(plainPassword) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plainPassword);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export default function OwnerRegisterAkun() {
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = location.state || { jabatan: 'kasir' };
 
-  const [ownerId, setOwnerId] = useState(routeState.ownerId || '');
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
   const [telepon, setTelepon] = useState('');
@@ -18,35 +26,22 @@ export default function OwnerRegisterAkun() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
 
-  // Ambil sesi owner saat komponen dimuat
-  useEffect(() => {
-    const fetchOwnerSession = async () => {
-      if (!ownerId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
-          setOwnerId(session.user.id);
-        } else {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('role', 'owner')
-            .limit(1);
+  const getOwnerId = () => {
+    let activeOwner = localStorage.getItem('owner_id');
+    if (!activeOwner) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      activeOwner = `toko_${randomNum}`;
+      localStorage.setItem('owner_id', activeOwner);
+    }
+    return activeOwner;
+  };
 
-          if (profiles && profiles.length > 0) {
-            setOwnerId(profiles[0].id);
-          }
-        }
-      }
-    };
-    fetchOwnerSession();
-  }, [ownerId]);
-
-  // Generate username dan password mudah secara otomatis saat nama diketik
   const handleNameChange = (val) => {
     setNama(val);
-    const cleanName = val.toLowerCase().replace(/[^a-z]/g, '');
+    const cleanName = val.toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
     if (cleanName.length > 0) {
-      setUsername(`${cleanName}${Math.floor(10 + Math.random() * 90)}`);
+      const randDigits = Math.floor(10 + Math.random() * 90);
+      setUsername(`${cleanName}${randDigits}`);
       setPassword(`${cleanName}123`);
     } else {
       setUsername('');
@@ -60,47 +55,33 @@ export default function OwnerRegisterAkun() {
       return;
     }
 
-    // Pastikan owner_id terambil secara instan saat tombol diklik
-    let currentOwnerId = ownerId;
-    if (!currentOwnerId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        currentOwnerId = session.user.id;
-      } else {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'owner')
-          .limit(1);
-
-        if (profiles && profiles.length > 0) {
-          currentOwnerId = profiles[0].id;
-        }
-      }
-    }
-
-    if (!currentOwnerId) {
-      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah login.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      const currentOwnerId = getOwnerId();
+      
+      // Ubah password buatan user menjadi bentuk hash acak yang aman di database
+      const securePassword = await hashPassword(password);
+
       const payload = {
-        owner_id: currentOwnerId,
-        nama: nama,
-        telepon: telepon,
-        jabatan: routeState.jabatan,
-        gaji_pokok: 0,
-        target_bulanan: 0
+        id: 'usr_' + Math.random().toString(36).substr(2, 9),
+        owner_id: currentOwnerId, // Format teks: nama_toko_3angka
+        full_name: nama,
+        username: username,
+        email: email,
+        phone: telepon,
+        role: routeState.jabatan, // 'kasir' atau 'admin'
+        password: securePassword, // Tersimpan ter-hash tidak terbaca di database
+        subscription_plan: 'free_trial',
+        billing_cycle: 'monthly'
       };
 
       const { error } = await supabase
-        .from('staff_members')
+        .from('profiles')
         .insert([payload]);
 
       if (error) throw error;
 
+      // Simpan password asli untuk ditampilkan sekali ke user agar bisa disalin
       setCreatedCredentials({ username, password });
     } catch (err) {
       console.error('Gagal membuat akun:', err.message);
@@ -135,7 +116,7 @@ export default function OwnerRegisterAkun() {
             </div>
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#181b2b]">Identitas & Kredensial Login</h3>
-              <p className="text-[10px] text-[#86899B]">Akun terikat otomatis dengan ID Tenant Anda</p>
+              <p className="text-[10px] text-[#86899B]">Akun terikat otomatis dengan ID Tenant Toko Anda</p>
             </div>
           </div>
 
@@ -185,12 +166,12 @@ export default function OwnerRegisterAkun() {
             </div>
 
             <div>
-              <label className="font-bold text-[#181b2b] mb-1 block">Password</label>
+              <label className="font-bold text-[#181b2b] mb-1 block">Password (Bisa disesuaikan)</label>
               <input 
                 type="text" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password mudah..."
+                placeholder="Masukkan password..."
                 className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
               />
             </div>
@@ -206,7 +187,6 @@ export default function OwnerRegisterAkun() {
         </div>
       </main>
 
-      {/* POP-UP KREDENSIAL SEKALI LIHAT */}
       {createdCredentials && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4 border border-emerald-100 text-center">
@@ -215,7 +195,7 @@ export default function OwnerRegisterAkun() {
             </div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#181b2b]">Pendaftaran Akun Berhasil!</h3>
             <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-              ⚠️ Salin atau screenshot informasi ini sekarang. <b>Data ini hanya dapat dilihat sekali ini saja</b>!
+              ⚠️ Salin informasi ini sekarang. <b>Data ini hanya dapat dilihat sekali ini saja</b>!
             </p>
 
             <div className="bg-[#F1F2F6] p-4 rounded-2xl flex flex-col gap-2 text-left text-xs font-mono">
