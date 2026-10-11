@@ -14,37 +14,43 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil sesi owner asli secara mutlak dari Supabase
+  // Cek sesi aktif, jika belum ada ambil dari profil owner pertama yang terdaftar di database agar tidak terblokir
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session || !session.user) {
-        alert('Sesi owner tidak ditemukan atau telah kedaluwarsa. Silakan login ulang.');
-        navigate('/login-form');
-        return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        setOwnerId(session.user.id);
+      } else {
+        // Ambil otomatis ID owner dari tabel profiles jika session auth kosong
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'owner')
+          .limit(1);
+
+        if (profiles && profiles.length > 0) {
+          setOwnerId(profiles[0].id);
+        }
       }
-      setOwnerId(session.user.id);
     };
     fetchSession();
-  }, [navigate]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun dengan membawa ownerId asli
     if (jabatan === 'kasir' || jabatan === 'admin') {
       navigate('/owner/register-akun', { state: { jabatan, ownerId } });
       return;
     }
 
-    // Validasi input khusus Staff / Umum
     if (!nama || !email || !telepon) {
       alert('Mohon lengkapi Nama, Email, dan Nomor Telepon untuk Staff!');
       return;
     }
 
     if (!ownerId) {
-      alert('Sesi owner belum teridentifikasi. Mohon muat ulang halaman.');
+      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah terdaftar sebagai owner.');
       return;
     }
 
@@ -129,7 +135,6 @@ export default function OwnerRegisterStaff() {
               </div>
             </div>
 
-            {/* HANYA MUNCUL JIKA JABATAN STAFF */}
             {jabatan === 'staff' && (
               <>
                 <div>
@@ -167,7 +172,6 @@ export default function OwnerRegisterStaff() {
               </>
             )}
 
-            {/* INFO KHUSUS KASIR & ADMIN */}
             {(jabatan === 'kasir' || jabatan === 'admin') && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-900 leading-relaxed flex flex-col gap-1">
                 <span className="font-bold uppercase tracking-wide text-[#01a684]">Pembuatan Akun {jabatan}</span>

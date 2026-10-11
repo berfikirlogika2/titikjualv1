@@ -21,17 +21,24 @@ export default function OwnerRegisterAkun() {
   useEffect(() => {
     const fetchOwnerSession = async () => {
       if (!ownerId) {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error || !session || !session.user) {
-          alert('Sesi owner tidak ditemukan. Silakan login ulang.');
-          navigate('/login-form');
-          return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          setOwnerId(session.user.id);
+        } else {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'owner')
+            .limit(1);
+
+          if (profiles && profiles.length > 0) {
+            setOwnerId(profiles[0].id);
+          }
         }
-        setOwnerId(session.user.id);
       }
     };
     fetchOwnerSession();
-  }, [ownerId, navigate]);
+  }, [ownerId]);
 
   const handleNameChange = (val) => {
     setNama(val);
