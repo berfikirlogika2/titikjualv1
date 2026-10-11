@@ -18,6 +18,7 @@ export default function OwnerRegisterAkun() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
 
+  // Ambil sesi owner saat komponen dimuat
   useEffect(() => {
     const fetchOwnerSession = async () => {
       if (!ownerId) {
@@ -40,6 +41,7 @@ export default function OwnerRegisterAkun() {
     fetchOwnerSession();
   }, [ownerId]);
 
+  // Generate username dan password mudah secara otomatis saat nama diketik
   const handleNameChange = (val) => {
     setNama(val);
     const cleanName = val.toLowerCase().replace(/[^a-z]/g, '');
@@ -58,15 +60,34 @@ export default function OwnerRegisterAkun() {
       return;
     }
 
-    if (!ownerId) {
-      alert('Sesi owner belum teridentifikasi.');
+    // Pastikan owner_id terambil secara instan saat tombol diklik
+    let currentOwnerId = ownerId;
+    if (!currentOwnerId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        currentOwnerId = session.user.id;
+      } else {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'owner')
+          .limit(1);
+
+        if (profiles && profiles.length > 0) {
+          currentOwnerId = profiles[0].id;
+        }
+      }
+    }
+
+    if (!currentOwnerId) {
+      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah login.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const payload = {
-        owner_id: ownerId,
+        owner_id: currentOwnerId,
         nama: nama,
         telepon: telepon,
         jabatan: routeState.jabatan,
@@ -185,6 +206,7 @@ export default function OwnerRegisterAkun() {
         </div>
       </main>
 
+      {/* POP-UP KREDENSIAL SEKALI LIHAT */}
       {createdCredentials && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4 border border-emerald-100 text-center">

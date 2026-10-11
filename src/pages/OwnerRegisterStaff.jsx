@@ -14,14 +14,13 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Cek sesi aktif, jika belum ada ambil dari profil owner pertama yang terdaftar di database agar tidak terblokir
+  // Ambil sesi saat komponen dimuat
   useEffect(() => {
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
         setOwnerId(session.user.id);
       } else {
-        // Ambil otomatis ID owner dari tabel profiles jika session auth kosong
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
@@ -39,25 +38,46 @@ export default function OwnerRegisterStaff() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (jabatan === 'kasir' || jabatan === 'admin') {
-      navigate('/owner/register-akun', { state: { jabatan, ownerId } });
+    // Ambil owner_id secara langsung saat tombol diklik untuk memastikan tidak kosong
+    let currentOwnerId = ownerId;
+    if (!currentOwnerId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        currentOwnerId = session.user.id;
+      } else {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'owner')
+          .limit(1);
+
+        if (profiles && profiles.length > 0) {
+          currentOwnerId = profiles[0].id;
+        }
+      }
+    }
+
+    if (!currentOwnerId) {
+      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah login.');
       return;
     }
 
+    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun dengan membawa ownerId yang valid
+    if (jabatan === 'kasir' || jabatan === 'admin') {
+      navigate('/owner/register-akun', { state: { jabatan, ownerId: currentOwnerId } });
+      return;
+    }
+
+    // Validasi input khusus Staff / Umum
     if (!nama || !email || !telepon) {
       alert('Mohon lengkapi Nama, Email, dan Nomor Telepon untuk Staff!');
-      return;
-    }
-
-    if (!ownerId) {
-      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah terdaftar sebagai owner.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const payload = {
-        owner_id: ownerId,
+        owner_id: currentOwnerId,
         nama: nama,
         telepon: telepon,
         jabatan: jabatan,
