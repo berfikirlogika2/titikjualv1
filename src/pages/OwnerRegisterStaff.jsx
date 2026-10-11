@@ -14,17 +14,17 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil sesi saat komponen dimuat
+  // Ambil owner_id dari auth session atau ambil langsung dari tabel profiles
   useEffect(() => {
-    const fetchSession = async () => {
+    const fetchOwner = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
         setOwnerId(session.user.id);
       } else {
-        const { data: profiles } = await supabase
+        // Fallback mengambil owner dari tabel profiles agar selalu dapat ID valid
+        const { data: profiles, error } = await supabase
           .from('profiles')
           .select('id')
-          .eq('role', 'owner')
           .limit(1);
 
         if (profiles && profiles.length > 0) {
@@ -32,13 +32,12 @@ export default function OwnerRegisterStaff() {
         }
       }
     };
-    fetchSession();
+    fetchOwner();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Ambil owner_id secara langsung saat tombol diklik untuk memastikan tidak kosong
     let currentOwnerId = ownerId;
     if (!currentOwnerId) {
       const { data: { session } } = await supabase.auth.getSession();
@@ -48,7 +47,6 @@ export default function OwnerRegisterStaff() {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('role', 'owner')
           .limit(1);
 
         if (profiles && profiles.length > 0) {
@@ -58,11 +56,11 @@ export default function OwnerRegisterStaff() {
     }
 
     if (!currentOwnerId) {
-      alert('Sesi owner belum teridentifikasi. Pastikan Anda sudah login.');
+      alert('Tidak dapat menemukan data Tenant Owner di database. Pastikan tabel profiles sudah memiliki data.');
       return;
     }
 
-    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun dengan membawa ownerId yang valid
+    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun
     if (jabatan === 'kasir' || jabatan === 'admin') {
       navigate('/owner/register-akun', { state: { jabatan, ownerId: currentOwnerId } });
       return;
