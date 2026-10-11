@@ -27,30 +27,39 @@ export default function OwnerStaf() {
   const [stafList, setStafList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Ambil data staf dari Supabase berdasarkan owner_id yang aktif
+  // Ambil data staf dari tabel tunggal `profiles` berdasarkan owner_id teks di localStorage
   useEffect(() => {
     const fetchStaf = async () => {
       setLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          // Data simulasi fallback jika sesi belum aktif
-          setStafList([
-            { id: 1, nama: 'Sarah Jenkins', role: 'Kasir Utama', gajiPokok: 3000000, periodeKomisi: 'bulanan', omzetBulanIni: 13500000, targetBulanan: 15000000, komisiTerkumpul: 270000 },
-            { id: 2, nama: 'Budi Santoso', role: 'Kasir Shift Sore', gajiPokok: 2500000, periodeKomisi: 'harian', omzetBulanIni: 6200000, targetBulanan: 12000000, komisiTerkumpul: 75000 }
-          ]);
+        const activeOwnerId = localStorage.getItem('owner_id');
+        
+        if (!activeOwnerId) {
+          setStafList([]);
           setLoading(false);
           return;
         }
 
+        // Ambil semua data di profiles yang memiliki owner_id sama (termasuk staff, kasir, admin)
         const { data, error } = await supabase
-          .from('staff_members')
+          .from('profiles')
           .select('*')
-          .eq('owner_id', session.user.id);
+          .eq('owner_id', activeOwnerId);
 
         if (error) throw error;
-        if (data && data.length > 0) {
-          setStafList(data);
+        
+        if (data) {
+          // Format data agar sesuai dengan tampilan kartu staf
+          const formattedData = data.map(item => ({
+            id: item.id,
+            nama: item.full_name || item.username,
+            role: item.role ? item.role.toUpperCase() : 'STAFF',
+            gajiPokok: item.gaji_pokok || 3000000,
+            omzetBulanIni: item.omzet_bulan_ini || 0,
+            targetBulanan: item.target_bulanan || 15000000,
+            komisiTerkumpul: item.komisi_terkumpul || 0
+          }));
+          setStafList(formattedData);
         }
       } catch (err) {
         console.error('Gagal memuat data staf:', err.message);
@@ -112,13 +121,13 @@ export default function OwnerStaf() {
           <p className="text-xs text-center text-[#86899B] py-8">Memuat data staf...</p>
         ) : stafList.length === 0 ? (
           <div className="bg-white/70 backdrop-blur-md rounded-3xl border border-white/90 p-8 text-center flex flex-col items-center gap-2">
-            <p className="text-xs text-[#86899B]">Belum ada data karyawan yang terdaftar.</p>
+            <p className="text-xs text-[#86899B]">Belum ada data karyawan atau staf yang terdaftar.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stafList.map((staf) => {
-              const targetBln = staf.target_bulanan || staf.targetBulanan || 1;
-              const omzetBln = staf.omzet_bulan_ini || staf.omzetBulanIni || 0;
+              const targetBln = staf.targetBulanan || 1;
+              const omzetBln = staf.omzetBulanIni || 0;
               const progressBulanan = Math.min(100, Math.round((omzetBln / targetBln) * 100));
 
               return (
@@ -126,17 +135,17 @@ export default function OwnerStaf() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-2xl bg-[#01a684] text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
-                        {staf.nama.charAt(0)}
+                        {staf.nama ? staf.nama.charAt(0).toUpperCase() : 'S'}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
                           <h3 className="text-xs font-bold text-[#181b2b]">{staf.nama}</h3>
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-[#01a684] border border-emerald-200 uppercase">
-                            {staf.jabatan || staf.role || 'Staff'}
+                            {staf.role}
                           </span>
                         </div>
                         <p className="text-[10px] text-[#86899B] mt-0.5">
-                          Gaji: Rp {formatRupiah(staf.gaji_pokok || staf.gajiPokok || 0)}
+                          Gaji: Rp {formatRupiah(staf.gajiPokok)}
                         </p>
                       </div>
                     </div>
@@ -165,7 +174,7 @@ export default function OwnerStaf() {
                   <div className="flex items-center justify-between pt-2 border-t border-[#E9EBED]/60 text-xs">
                     <div>
                       <span className="text-[10px] text-[#86899B] block">Estimasi Komisi:</span>
-                      <strong className="text-[#01a684] text-xs font-black">Rp {formatRupiah(staf.komisi_terkumpul || staf.komisiTerkumpul || 0)}</strong>
+                      <strong className="text-[#01a684] text-xs font-black">Rp {formatRupiah(staf.komisiTerkumpul)}</strong>
                     </div>
 
                     <button 
