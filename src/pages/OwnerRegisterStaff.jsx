@@ -14,21 +14,34 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil owner_id dari auth session atau ambil langsung dari tabel profiles
+  // Ambil owner_id langsung dari tabel profiles secara otomatis
   useEffect(() => {
     const fetchOwner = async () => {
+      // 1. Coba ambil dari sesi auth
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
         setOwnerId(session.user.id);
+        return;
+      }
+
+      // 2. Jika sesi kosong, ambil owner pertama dari tabel profiles
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'owner')
+        .limit(1);
+
+      if (profiles && profiles.length > 0) {
+        setOwnerId(profiles[0].id);
       } else {
-        // Fallback mengambil owner dari tabel profiles agar selalu dapat ID valid
-        const { data: profiles, error } = await supabase
+        // Fallback mutlak mengambil baris pertama apapun rolenya dari profiles
+        const { data: allProfiles } = await supabase
           .from('profiles')
           .select('id')
           .limit(1);
-
-        if (profiles && profiles.length > 0) {
-          setOwnerId(profiles[0].id);
+        
+        if (allProfiles && allProfiles.length > 0) {
+          setOwnerId(allProfiles[0].id);
         }
       }
     };
@@ -39,24 +52,21 @@ export default function OwnerRegisterStaff() {
     e.preventDefault();
 
     let currentOwnerId = ownerId;
+    
+    // Validasi ulang instan saat tombol diklik
     if (!currentOwnerId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        currentOwnerId = session.user.id;
-      } else {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .limit(1);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
 
-        if (profiles && profiles.length > 0) {
-          currentOwnerId = profiles[0].id;
-        }
+      if (profiles && profiles.length > 0) {
+        currentOwnerId = profiles[0].id;
       }
     }
 
     if (!currentOwnerId) {
-      alert('Tidak dapat menemukan data Tenant Owner di database. Pastikan tabel profiles sudah memiliki data.');
+      alert('Gagal mendeteksi Tenant Owner. Pastikan tabel profiles sudah memiliki data.');
       return;
     }
 
@@ -82,6 +92,8 @@ export default function OwnerRegisterStaff() {
         gaji_pokok: 0,
         target_bulanan: 0
       };
+
+      console.log('Mengirim data staff:', payload);
 
       const { error } = await supabase
         .from('staff_members')
