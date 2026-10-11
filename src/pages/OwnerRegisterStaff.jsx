@@ -14,35 +14,37 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil owner_id langsung dari tabel profiles secara otomatis
+  // Ambil owner_id langsung dari localStorage atau ambil dari profiles
   useEffect(() => {
     const fetchOwner = async () => {
-      // 1. Coba ambil dari sesi auth
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        setOwnerId(session.user.id);
+      // 1. Cek apakah owner_id sudah tersimpan di localStorage
+      const cachedOwnerId = localStorage.getItem('owner_id') || localStorage.getItem('user_id');
+      if (cachedOwnerId) {
+        setOwnerId(cachedOwnerId);
         return;
       }
 
-      // 2. Jika sesi kosong, ambil owner pertama dari tabel profiles
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'owner')
-        .limit(1);
+      // 2. Jika tidak ada, ambil dari sesi auth aktif
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        setOwnerId(session.user.id);
+        localStorage.setItem('owner_id', session.user.id);
+        return;
+      }
 
-      if (profiles && profiles.length > 0) {
-        setOwnerId(profiles[0].id);
-      } else {
-        // Fallback mutlak mengambil baris pertama apapun rolenya dari profiles
-        const { data: allProfiles } = await supabase
+      // 3. Jika masih kosong, ambil langsung dari tabel profiles
+      try {
+        const { data: profiles, error } = await supabase
           .from('profiles')
           .select('id')
           .limit(1);
-        
-        if (allProfiles && allProfiles.length > 0) {
-          setOwnerId(allProfiles[0].id);
+
+        if (profiles && profiles.length > 0) {
+          setOwnerId(profiles[0].id);
+          localStorage.setItem('owner_id', profiles[0].id);
         }
+      } catch (err) {
+        console.error('Gagal mengambil profil owner:', err);
       }
     };
     fetchOwner();
@@ -51,9 +53,9 @@ export default function OwnerRegisterStaff() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let currentOwnerId = ownerId;
-    
-    // Validasi ulang instan saat tombol diklik
+    // Dapatkan owner_id terbaru dari state atau localStorage
+    let currentOwnerId = ownerId || localStorage.getItem('owner_id') || localStorage.getItem('user_id');
+
     if (!currentOwnerId) {
       const { data: profiles } = await supabase
         .from('profiles')
@@ -62,11 +64,13 @@ export default function OwnerRegisterStaff() {
 
       if (profiles && profiles.length > 0) {
         currentOwnerId = profiles[0].id;
+        localStorage.setItem('owner_id', profiles[0].id);
       }
     }
 
     if (!currentOwnerId) {
-      alert('Gagal mendeteksi Tenant Owner. Pastikan tabel profiles sudah memiliki data.');
+      alert('Sesi Owner belum terdeteksi. Silakan login kembali ke akun Owner Anda.');
+      navigate('/login-form');
       return;
     }
 
@@ -92,8 +96,6 @@ export default function OwnerRegisterStaff() {
         gaji_pokok: 0,
         target_bulanan: 0
       };
-
-      console.log('Mengirim data staff:', payload);
 
       const { error } = await supabase
         .from('staff_members')
