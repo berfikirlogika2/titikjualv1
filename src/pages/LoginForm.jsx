@@ -53,9 +53,18 @@ function LoginForm() {
         localStorage.setItem('owner_id', data.owner_id);
       }
 
+      // PENGECEKAN ALUR BISNIS:
+      // Jika role-nya adalah 'owner' tetapi status langganannya belum aktif,
+      // cegah masuk dashboard utama dan arahkan ke halaman pembayaran langganan.
+      if (data.role === 'owner' && data.subscription_status !== 'active') {
+        alert('Akun Anda belum memiliki langganan aktif. Silakan selesaikan pembayaran terlebih dahulu.');
+        navigate('/register-payment');
+        return;
+      }
+
       alert(`Login berhasil sebagai ${data.role.toUpperCase()}`);
 
-      // Arahkan ke halaman berdasarkan role masing-masing
+      // Arahkan ke halaman berdasarkan role masing-masing jika sudah aktif
       if (data.role === 'owner' || data.role === 'admin') {
         navigate('/owner-dashboard');
       } else {

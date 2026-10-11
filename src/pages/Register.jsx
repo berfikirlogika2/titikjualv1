@@ -19,7 +19,7 @@ function Register() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   
   const [formData, setFormData] = useState({
-    namaToko: '', // Tambahan input untuk nama toko / outlet
+    namaToko: '',
     fullName: '',
     username: '',
     email: '',
@@ -57,7 +57,7 @@ function Register() {
       // 2. Hash password aman
       const securePassword = await hashPassword(formData.password);
 
-      // 3. Simpan data langsung ke tabel profiles (tanpa supabase.auth)
+      // 3. Simpan data ke tabel profiles (status langganan pending/belum aktif)
       const payload = {
         id: crypto.randomUUID(),
         owner_id: customOwnerId,
@@ -67,8 +67,8 @@ function Register() {
         phone: formData.phone,
         role: 'owner',
         password: securePassword,
-        subscription_plan: 'free_trial',
-        billing_cycle: 'monthly'
+        subscription_plan: 'pending', // Belum memilih paket
+        subscription_status: 'inactive'
       };
 
       const { error } = await supabase.from('profiles').insert([payload]);
@@ -81,8 +81,10 @@ function Register() {
       localStorage.setItem('user_role', 'owner');
       localStorage.setItem('regEmail', formData.email);
 
-      alert(`Pendaftaran berhasil!\nID Toko Anda: ${customOwnerId}`);
-      navigate('/register-payment');
+      alert('Pendaftaran berhasil! Silakan pilih paket langganan Anda.');
+      
+      // 5. Arahkan ke halaman pemilihan paket terlebih dahulu (bukan langsung ke payment)
+      navigate('/register-paket'); // Sesuaikan dengan route halaman pemilihan paket Anda (misal: /register-paket atau /pricing)
 
     } catch (error) {
       console.error('Gagal Mendaftar:', error.message);
@@ -164,7 +166,7 @@ function Register() {
 
             <form className="flex flex-col gap-5 w-full" onSubmit={handleSubmit}>
               
-              {/* Nama Toko / Outlet (Tambahan agar owner_id terbentuk sesuai nama toko) */}
+              {/* Nama Toko / Outlet */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="namaToko">Nama Toko / Outlet</label>
                 <div className="relative flex items-center">
