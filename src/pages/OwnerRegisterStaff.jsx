@@ -9,43 +9,48 @@ export default function OwnerRegisterStaff() {
 
   const [ownerId, setOwnerId] = useState('');
   const [nama, setNama] = useState('');
+  const [email, setEmail] = useState('');
   const [telepon, setTelepon] = useState('');
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ambil sesi owner asli dari Supabase saat halaman dimuat
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setOwnerId(session.user.id);
-      } else {
-        setOwnerId('owner-sample-id');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        alert('Sesi owner tidak ditemukan. Silakan login ulang.');
+        navigate('/login-form');
+        return;
       }
+      setOwnerId(session.user.id);
     };
     fetchSession();
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun
     if (jabatan === 'kasir' || jabatan === 'admin') {
       navigate('/owner/register-akun', { state: { jabatan, ownerId } });
       return;
     }
 
-    if (!nama || !telepon) {
-      alert('Mohon lengkapi nama dan nomor telepon untuk Staff!');
+    // Validasi input khusus Staff / Umum
+    if (!nama || !email || !telepon) {
+      alert('Mohon lengkapi Nama, Email, dan Nomor Telepon untuk Staff!');
+      return;
+    }
+
+    if (!ownerId) {
+      alert('Owner ID belum terdeteksi. Mohon tunggu sebentar.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      if (ownerId === 'owner-sample-id') {
-        alert('Simulasi: Data staff berhasil ditambahkan!');
-        navigate('/owner/staf');
-        return;
-      }
-
+      // Simpan data staff ke tabel staff_members Supabase
       const payload = {
         owner_id: ownerId,
         nama: nama,
@@ -125,7 +130,7 @@ export default function OwnerRegisterStaff() {
               </div>
             </div>
 
-            {/* HANYA MUNCUL JIKA JABATAN STAFF */}
+            {/* HANYA MUNCUL JIKA JABATAN STAFF (DENGAN TAMBAHAN EMAIL) */}
             {jabatan === 'staff' && (
               <>
                 <div>
@@ -135,6 +140,17 @@ export default function OwnerRegisterStaff() {
                     value={nama}
                     onChange={(e) => setNama(e.target.value)}
                     placeholder="Contoh: Rina Melati"
+                    className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#181b2b] mb-1 block">Alamat Gmail / Email</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Contoh: rina@gmail.com"
                     className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
                   />
                 </div>
@@ -156,7 +172,7 @@ export default function OwnerRegisterStaff() {
             {(jabatan === 'kasir' || jabatan === 'admin') && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-900 leading-relaxed flex flex-col gap-1">
                 <span className="font-bold uppercase tracking-wide text-[#01a684]">Pembuatan Akun {jabatan}</span>
-                <p>Nama lengkap, nomor telepon, username, dan password kredensial login akan diinput secara lengkap pada halaman pembuatan akun berikutnya.</p>
+                <p>Nama lengkap, Gmail, nomor telepon, username, dan password login akan diinput secara lengkap pada halaman pembuatan akun berikutnya.</p>
               </div>
             )}
           </div>

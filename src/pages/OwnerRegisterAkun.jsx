@@ -7,33 +7,38 @@ import OwnerBottomNav from './OwnerBottomNav';
 export default function OwnerRegisterAkun() {
   const navigate = useNavigate();
   const location = useLocation();
-  const routeState = location.state || { jabatan: 'kasir', ownerId: '' };
+  const routeState = location.state || { jabatan: 'kasir' };
 
-  const [ownerId, setOwnerId] = useState(routeState.ownerId || '');
+  const [ownerId, setOwnerId] = useState('');
   const [nama, setNama] = useState('');
+  const [email, setEmail] = useState('');
   const [telepon, setTelepon] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
 
+  // Ambil sesi owner asli yang sedang login dengan benar
   useEffect(() => {
     const fetchOwnerSession = async () => {
-      if (!ownerId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) setOwnerId(session.user.id);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        alert('Sesi owner tidak ditemukan. Silakan login ulang.');
+        navigate('/login-form');
+        return;
       }
+      setOwnerId(session.user.id);
     };
     fetchOwnerSession();
-  }, [ownerId]);
+  }, [navigate]);
 
-  // Generate username otomatis saat nama diketik
+  // Generate username dan password sederhana secara otomatis saat nama diketik
   const handleNameChange = (val) => {
     setNama(val);
     const cleanName = val.toLowerCase().replace(/[^a-z]/g, '');
     if (cleanName.length > 0) {
-      setUsername(`${cleanName}${Math.floor(100 + Math.random() * 900)}`);
-      setPassword(`bjg-${Math.random().toString(36).slice(-6)}`);
+      setUsername(`${cleanName}${Math.floor(10 + Math.random() * 90)}`);
+      setPassword(`${cleanName}123`);
     } else {
       setUsername('');
       setPassword('');
@@ -41,34 +46,31 @@ export default function OwnerRegisterAkun() {
   };
 
   const handleCreateAccount = async () => {
-    if (!nama || !telepon) {
-      alert('Mohon lengkapi nama lengkap dan nomor telepon!');
+    if (!nama || !email || !telepon || !username || !password) {
+      alert('Mohon lengkapi semua data formulir!');
+      return;
+    }
+
+    if (!ownerId) {
+      alert('Owner ID belum terdeteksi. Mohon tunggu sebentar.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const targetOwnerId = ownerId || 'owner-sample-id';
+      // Simpan data staf & akun langsung ke tabel staff_members Supabase
+      const payload = {
+        owner_id: ownerId,
+        nama: nama,
+        telepon: telepon,
+        jabatan: routeState.jabatan,
+        gaji_pokok: 0,
+        target_bulanan: 0
+      };
 
-      if (targetOwnerId === 'owner-sample-id') {
-        setCreatedCredentials({ username: username || 'kasir123', password: password || 'bjg-sample' });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Simpan data staf & akun ke tabel staff_members Supabase
       const { error } = await supabase
         .from('staff_members')
-        .insert([
-          {
-            owner_id: targetOwnerId,
-            nama: nama,
-            telepon: telepon,
-            jabatan: routeState.jabatan,
-            gaji_pokok: 0,
-            target_bulanan: 0
-          }
-        ]);
+        .insert([payload]);
 
       if (error) throw error;
 
@@ -123,6 +125,17 @@ export default function OwnerRegisterAkun() {
             </div>
 
             <div>
+              <label className="font-bold text-[#181b2b] mb-1 block">Alamat Gmail / Email</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Contoh: budi@gmail.com"
+                className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+              />
+            </div>
+
+            <div>
               <label className="font-bold text-[#181b2b] mb-1 block">Nomor Telepon / WhatsApp</label>
               <input 
                 type="text" 
@@ -139,18 +152,18 @@ export default function OwnerRegisterAkun() {
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Otomatis terbuat dari nama..."
+                placeholder="Username otomatis..."
                 className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
               />
             </div>
 
             <div>
-              <label className="font-bold text-[#181b2b] mb-1 block">Password Sementara</label>
+              <label className="font-bold text-[#181b2b] mb-1 block">Password</label>
               <input 
                 type="text" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Otomatis terbuat..."
+                placeholder="Password mudah..."
                 className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold outline-none"
               />
             </div>
