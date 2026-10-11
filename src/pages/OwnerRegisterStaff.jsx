@@ -14,24 +14,24 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil sesi owner dengan fallback aman (tidak langsung mental ke login)
+  // Ambil sesi owner asli secara mutlak dari Supabase
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        setOwnerId(session.user.id);
-      } else {
-        // Fallback aman untuk development/preview agar tidak terblokir
-        setOwnerId('owner-sample-id');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session || !session.user) {
+        alert('Sesi owner tidak ditemukan atau telah kedaluwarsa. Silakan login ulang.');
+        navigate('/login-form');
+        return;
       }
+      setOwnerId(session.user.id);
     };
     fetchSession();
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun
+    // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun dengan membawa ownerId asli
     if (jabatan === 'kasir' || jabatan === 'admin') {
       navigate('/owner/register-akun', { state: { jabatan, ownerId } });
       return;
@@ -43,13 +43,15 @@ export default function OwnerRegisterStaff() {
       return;
     }
 
+    if (!ownerId) {
+      alert('Sesi owner belum teridentifikasi. Mohon muat ulang halaman.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const currentOwnerId = ownerId || 'owner-sample-id';
-
-      // Simpan data staff ke tabel staff_members Supabase
       const payload = {
-        owner_id: currentOwnerId,
+        owner_id: ownerId,
         nama: nama,
         telepon: telepon,
         jabatan: jabatan,

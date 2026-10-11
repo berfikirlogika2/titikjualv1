@@ -9,7 +9,7 @@ export default function OwnerRegisterAkun() {
   const location = useLocation();
   const routeState = location.state || { jabatan: 'kasir' };
 
-  const [ownerId, setOwnerId] = useState('');
+  const [ownerId, setOwnerId] = useState(routeState.ownerId || '');
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
   const [telepon, setTelepon] = useState('');
@@ -18,21 +18,21 @@ export default function OwnerRegisterAkun() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
 
-  // Ambil sesi owner asli yang sedang login dengan benar
   useEffect(() => {
     const fetchOwnerSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        alert('Sesi owner tidak ditemukan. Silakan login ulang.');
-        navigate('/login-form');
-        return;
+      if (!ownerId) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session || !session.user) {
+          alert('Sesi owner tidak ditemukan. Silakan login ulang.');
+          navigate('/login-form');
+          return;
+        }
+        setOwnerId(session.user.id);
       }
-      setOwnerId(session.user.id);
     };
     fetchOwnerSession();
-  }, [navigate]);
+  }, [ownerId, navigate]);
 
-  // Generate username dan password sederhana secara otomatis saat nama diketik
   const handleNameChange = (val) => {
     setNama(val);
     const cleanName = val.toLowerCase().replace(/[^a-z]/g, '');
@@ -52,13 +52,12 @@ export default function OwnerRegisterAkun() {
     }
 
     if (!ownerId) {
-      alert('Owner ID belum terdeteksi. Mohon tunggu sebentar.');
+      alert('Sesi owner belum teridentifikasi.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Simpan data staf & akun langsung ke tabel staff_members Supabase
       const payload = {
         owner_id: ownerId,
         nama: nama,
@@ -179,7 +178,6 @@ export default function OwnerRegisterAkun() {
         </div>
       </main>
 
-      {/* POP-UP KREDENSIAL SEKALI LIHAT */}
       {createdCredentials && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4 border border-emerald-100 text-center">
