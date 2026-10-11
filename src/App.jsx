@@ -1,22 +1,22 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SplashScreen from './pages/SplashScreen';
-import Login from './pages/Login';                 
-import LoginForm from './pages/Loginform';        
-import Register from './pages/Register';          
-import RegisterOTP from './pages/RegisterOTP';    
+import Login from './pages/Login';                
+import LoginForm from './pages/Loginform';       
+import Register from './pages/Register';         
+import RegisterOTP from './pages/RegisterOTP';   
 import RegisterPlan from './pages/RegisterPlan';       
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
 import TermsAndConditions from './pages/TermsAndConditions'; 
 import CashierDashboard from './pages/CashierDashboard'; // Modul Kasir
-import AdminDashboard from './pages/AdminDashboard';         
+import AdminDashboard from './pages/AdminDashboard';        
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import OwnerLaporan from './pages/OwnerLaporan';
 import OwnerSemuaTransaksi from './pages/OwnerSemuaTransaksi'; 
 import OwnerStaf from './pages/OwnerStaf';
-import OwnerStafDetail from './pages/OwnerStafDetail';       // <-- Tambahan Halaman Detail Staf
-import OwnerRegisterStaff from './pages/OwnerRegisterStaff'; // <-- Tambahan Halaman Tambah Staf
-import OwnerRegisterAkun from './pages/OwnerRegisterAkun';   // <-- Tambahan Halaman Akun Login Kasir/Admin
+import OwnerStafDetail from './pages/OwnerStafDetail';       // <-- Halaman Detail Staf
+import OwnerRegisterStaff from './pages/OwnerRegisterStaff'; // <-- Halaman Tambah Staf
+import OwnerRegisterAkun from './pages/OwnerRegisterAkun';   // <-- Halaman Buat Akun Kasir/Admin
 import DashboardKinerjaStaf from './pages/DashboardKinerjaStaf';
 import OwnerBahan from './pages/OwnerBahan';
 import OwnerPajak from './pages/OwnerPajak';
