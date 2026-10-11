@@ -59,7 +59,7 @@ function Register() {
 
       // 3. Simpan data langsung ke tabel profiles (tanpa supabase.auth)
       const payload = {
-        id: 'usr_' + Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         owner_id: customOwnerId,
         full_name: formData.fullName,
         username: formData.username,
