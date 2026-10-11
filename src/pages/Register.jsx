@@ -2,334 +2,257 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
+// Fungsi helper hash password SHA-256
+async function hashPassword(plainPassword) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plainPassword);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function Register() {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    fullName: '',
-    username: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: ''
-  });
+  const [namaToko, setNamaToko] = useState('');
+  const [namaLengkap, setNamaLengkap] = useState('');
+  const [email, setEmail] = useState('');
+  const [telepon, setTelepon] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  // Otomatis buat username saat nama lengkap diketik
+  const handleNameChange = (val) => {
+    setNamaLengkap(val);
+    const cleanName = val.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6);
+    if (cleanName.length > 0) {
+      const randNum = Math.floor(10 + Math.random() * 90);
+      setUsername(`${cleanName}${randNum}`);
+      setPassword(`${cleanName}123`);
+    } else {
+      setUsername('');
+      setPassword('');
+    }
   };
 
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    if (!agreedToTerms) {
-      alert('Anda harus menyetujui Syarat & Ketentuan terlebih dahulu.');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      alert('Password dan Konfirmasi Password tidak cocok!');
+    if (!namaToko || !namaLengkap || !email || !telepon || !username || !password) {
+      alert('Mohon lengkapi semua kolom formulir pendaftaran!');
       return;
     }
 
-    setLoading(true);
-
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            username: formData.username,
-            role: 'owner',
-            phone: formData.phone,
-          }
-        }
-      });
+      // 1. Buat owner_id berbasis teks dengan format: namatoko_3angka
+      const cleanStoreName = namaToko.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+      const randomThreeDigits = Math.floor(100 + Math.random() * 900);
+      const customOwnerId = `${cleanStoreName}_${randomThreeDigits}`;
 
+      // 2. Hash password aman
+      const securePassword = await hashPassword(password);
+
+      // 3. Simpan data langsung ke tabel tunggal `profiles` sebagai OWNER
+      const payload = {
+        id: 'usr_' + Math.random().toString(36).substr(2, 9),
+        owner_id: customOwnerId, // <-- Format teks custom yang rapi
+        full_name: namaLengkap,
+        username: username,
+        email: email,
+        phone: telepon,
+        role: 'owner',
+        password: securePassword,
+        subscription_plan: 'free_trial',
+        billing_cycle: 'monthly'
+      };
+
+      const { error } = await supabase.from('profiles').insert([payload]);
       if (error) throw error;
 
-      localStorage.setItem('regEmail', formData.email);
-      alert('Pendaftaran berhasil! Lanjutkan ke tahap verifikasi.');
-      navigate('/register-otp');
+      // 4. Simpan sesi penting ke localStorage untuk proses selanjutnya (pembayaran / dashboard)
+      localStorage.setItem('owner_id', customOwnerId);
+      localStorage.setItem('username', username);
+      localStorage.setItem('nama_lengkap', namaLengkap);
+      localStorage.setItem('user_role', 'owner');
+      localStorage.setItem('regEmail', email);
 
-    } catch (error) {
-      alert('Gagal Mendaftar: ' + error.message);
+      alert(`Pendaftaran berhasil!\nID Toko Anda: ${customOwnerId}\nUsername: ${username}`);
+      
+      // Arahkan ke halaman pemilihan paket / pembayaran
+      navigate('/register-payment');
+
+    } catch (err) {
+      console.error('Gagal mendaftar:', err.message);
+      alert('Terjadi kesalahan pendaftaran: ' + err.message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col antialiased" style={{ background: 'linear-gradient(180deg, #00A482 0%, #018c6f 100%)' }}>
+    <div className="bg-[#01A684] text-slate-800 min-h-screen flex flex-col font-['Inter'] antialiased selection:bg-[#01A684] selection:text-white overflow-x-hidden">
       
       {/* Header */}
-      <header className="w-full flex justify-center pt-12 pb-8 z-10 px-6 shrink-0">
-        <div className="w-full max-w-screen-md mx-auto flex items-center justify-between relative">
+      <header className="pt-8 pb-8 px-6 flex flex-col items-center text-center relative bg-[#01A684] text-white w-full">
+        <div className="w-full flex items-center justify-between mb-4 max-w-md">
           <button 
+            aria-label="Kembali" 
             onClick={() => navigate(-1)}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/25 hover:bg-white/35 text-white transition-colors cursor-pointer border-0" 
-            title="Kembali"
+            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center transition-all text-white backdrop-blur-sm cursor-pointer border-0" 
             type="button"
           >
-            <span className="material-symbols-outlined text-xl">arrow_back</span>
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
-          
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="text-2xl font-black tracking-tight text-white flex items-center gap-0.5">
-              <span className="text-gray-900">titik</span>
-              <span className="text-white">jual.</span>
-            </div>
-          </div>
-          
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-black/20 text-emerald-100 backdrop-blur-md border border-white/10">
+            PINTAR • V2.4
+          </span>
           <div className="w-10"></div>
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center tracking-tight text-white font-extrabold text-3xl">
+            <span>titik</span>
+            <span className="text-[#7af9d2]">jual</span>
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#7af9d2] ml-0.5 self-end mb-1.5"></span>
+          </div>
+          <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-100/90 text-center">
+            PENDAFTARAN PEMILIK OUTLET
+          </p>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="w-full bg-white flex-1 rounded-t-[32px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex flex-col px-6 pt-10 pb-8 z-20 relative max-w-screen-md mx-auto">
-        
-        {/* Registration Progress Wrapper */}
-        <div className="w-full flex flex-col gap-2 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Buat Akun Owner</h2>
-          <p className="text-sm text-gray-500 text-center max-w-md mx-auto">
-            Mulai kelola bisnis dan outlet Anda dengan lebih mudah. Lengkapi data diri untuk memulai.
-          </p>
+      {/* Card Form */}
+      <div className="bg-white text-slate-900 w-full rounded-t-[32px] px-6 py-8 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] flex flex-col flex-1 max-w-md mx-auto overflow-y-auto">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Daftar Akun Owner</h1>
+          <p className="text-[#86899B] text-sm mt-1">Buat ID Toko dan mulai kelola bisnis Anda hari ini</p>
+        </div>
+
+        <form className="flex flex-col gap-4 w-full" onSubmit={handleRegister}>
           
-          {/* Stepper */}
-          <div className="relative w-full max-w-sm mx-auto mt-8 mb-6">
-            <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gray-200 z-0 -translate-y-1/2"></div>
-            <div className="absolute top-1/2 left-0 h-[2px] bg-[#01A684] z-10 -translate-y-1/2 transition-all duration-300" style={{ width: '25%' }}></div>
-            
-            <div className="flex justify-between items-center relative z-20 w-full px-2">
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#01A684] border-2 border-[#01A684] text-white font-semibold text-sm">1</div>
-                <span className="text-xs font-medium text-[#01A684] absolute -bottom-6 whitespace-nowrap">Isi Data</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white border-2 border-gray-200 text-gray-400 font-semibold text-sm">2</div>
-                <span className="text-xs font-medium text-gray-400 absolute -bottom-6 whitespace-nowrap">Paket</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white border-2 border-gray-200 text-gray-400 font-semibold text-sm">3</div>
-                <span className="text-xs font-medium text-gray-400 absolute -bottom-6 whitespace-nowrap">Detail</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white border-2 border-gray-200 text-gray-400 font-semibold text-sm">4</div>
-                <span className="text-xs font-medium text-gray-400 absolute -bottom-6 whitespace-nowrap">Selesai</span>
-              </div>
-            </div>
+          {/* Nama Toko / Outlet */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="namaToko">
+              Nama Toko / Outlet Anda
+            </label>
+            <input 
+              id="namaToko"
+              type="text"
+              value={namaToko}
+              onChange={(e) => setNamaToko(e.target.value)}
+              placeholder="Contoh: Toko Berkah Jaya"
+              className="w-full px-4 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all font-semibold" 
+              required
+            />
           </div>
+
+          {/* Nama Lengkap Owner */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="namaLengkap">
+              Nama Lengkap Pemilik
+            </label>
+            <input 
+              id="namaLengkap"
+              type="text"
+              value={namaLengkap}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Contoh: Ahmad Fauzi"
+              className="w-full px-4 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all font-semibold" 
+              required
+            />
+          </div>
+
+          {/* Email */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="email">
+              Alamat Email / Gmail
+            </label>
+            <input 
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Contoh: ahmad@gmail.com"
+              className="w-full px-4 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all" 
+              required
+            />
+          </div>
+
+          {/* Telepon */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="telepon">
+              Nomor WhatsApp / Telepon
+            </label>
+            <input 
+              id="telepon"
+              type="text"
+              value={telepon}
+              onChange={(e) => setTelepon(e.target.value)}
+              placeholder="Contoh: 081234567890"
+              className="w-full px-4 py-3 bg-[#F1F2F6] border border-transparent rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#01A684] focus:ring-2 focus:ring-[#01A684]/20 outline-none transition-all" 
+              required
+            />
+          </div>
+
+          {/* Username (Auto) */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="username">
+              Username Login (Otomatis)
+            </label>
+            <input 
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Terisi otomatis..."
+              className="w-full px-4 py-3 bg-slate-100 border border-[#E9EBED] rounded-xl text-sm text-slate-700 font-bold outline-none" 
+              required
+            />
+          </div>
+
+          {/* Password (Auto/Custom) */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-xs font-semibold text-slate-700 tracking-wide" htmlFor="password">
+              Kata Sandi
+            </label>
+            <input 
+              id="password"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Kata sandi..."
+              className="w-full px-4 py-3 bg-slate-100 border border-[#E9EBED] rounded-xl text-sm text-slate-700 font-bold outline-none" 
+              required
+            />
+          </div>
+
+          {/* Tombol Submit */}
+          <button 
+            disabled={isLoading}
+            className="w-full bg-[#01A684] hover:bg-[#008769] text-white font-semibold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 text-sm mt-3 cursor-pointer border-0" 
+            type="submit"
+          >
+            <span>{isLoading ? 'Memproses Pendaftaran...' : 'Lanjut ke Pembayaran'}</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+          </button>
+        </form>
+
+        {/* Footer info */}
+        <div className="text-center mt-6 mb-2">
+          <p className="text-xs text-slate-600">
+            Sudah punya akun outlet?
+            <a 
+              className="text-[#01A684] font-semibold hover:underline ml-1 cursor-pointer" 
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/login');
+              }}
+            >
+              Masuk Disini
+            </a>
+          </p>
         </div>
-
-        {/* Main Form Section */}
-        <div className="flex flex-col gap-8 w-full max-w-lg mx-auto">
-          <div className="flex flex-col gap-6 w-full">
-            <div className="text-center md:text-left">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Informasi Pemilik Usaha (Owner)</h3>
-              <p className="text-sm text-gray-500">Data ini digunakan untuk akun admin utama/pemilik bisnis Titik Jual Anda.</p>
-            </div>
-
-            <form className="flex flex-col gap-5 w-full" onSubmit={handleSubmit}>
-              
-              {/* Nama Lengkap */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="fullName">Nama Lengkap</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">person</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="fullName" 
-                    name="fullName" 
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    placeholder="Masukkan nama sesuai KTP" 
-                    required 
-                    type="text" 
-                  />
-                </div>
-              </div>
-
-              {/* Username */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="username">Nama Pengguna (Username)</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">alternate_email</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="username" 
-                    name="username" 
-                    value={formData.username}
-                    onChange={handleChange}
-                    placeholder="Buat nama pengguna unik" 
-                    required 
-                    type="text" 
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="email">Email Aktif</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">mail</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="email" 
-                    name="email" 
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="contoh@email.com" 
-                    required 
-                    type="email" 
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="phone">Nomor Handphone (WhatsApp)</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">smartphone</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="phone" 
-                    name="phone" 
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="08xxxxxxxxxx" 
-                    required 
-                    type="tel" 
-                  />
-                </div>
-              </div>
-
-              <div className="w-full border-t border-gray-100 my-2"></div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="password">Password Baru</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">lock</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="password" 
-                    name="password" 
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Minimal 8 karakter" 
-                    required 
-                    type={showPassword ? "text" : "password"} 
-                  />
-                  <button 
-                    className="absolute right-4 text-gray-400 hover:text-gray-600 focus:outline-none bg-transparent border-0 cursor-pointer flex items-center" 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1.5" htmlFor="confirmPassword">Konfirmasi Password</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-gray-400 pointer-events-none">lock_reset</span>
-                  <input 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-12 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#01A684] focus:ring-1 focus:ring-[#01A684] transition-all duration-200" 
-                    id="confirmPassword" 
-                    name="confirmPassword" 
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Ketik ulang password" 
-                    required 
-                    type={showConfirmPassword ? "text" : "password"} 
-                  />
-                  <button 
-                    className="absolute right-4 text-gray-400 hover:text-gray-600 focus:outline-none bg-transparent border-0 cursor-pointer flex items-center" 
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    <span className="material-symbols-outlined text-xl">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* CHECKBOX SYARAT & KETENTUAN */}
-              <div className="flex items-start gap-3 mt-2">
-                <input 
-                  type="checkbox" 
-                  id="terms" 
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 accent-[#00A482] rounded border-gray-300 cursor-pointer"
-                  required
-                />
-                <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
-                  Saya menyatakan bahwa data yang diisi benar dan saya menyetujui{' '}
-                  <span 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate('/terms');
-                    }}
-                    className="text-[#01A684] font-semibold hover:underline"
-                  >
-                    Syarat & Ketentuan
-                  </span>{' '}
-                  serta Kebijakan Privasi Penggunaan Aplikasi Titik Jual.
-                </label>
-              </div>
-
-              <div className="mt-4">
-                <button 
-                  className="w-full bg-[#00A482] hover:opacity-90 text-white font-semibold rounded-full py-4 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer border-0 disabled:opacity-50" 
-                  type="submit"
-                  disabled={loading}
-                >
-                  <span>{loading ? 'Memproses...' : 'Lanjutkan'}</span>
-                  <span className="material-symbols-outlined text-xl">arrow_forward</span>
-                </button>
-              </div>
-            </form>
-
-            <div className="text-center mt-2">
-              <p className="text-sm text-gray-600">
-                Sudah punya akun?{' '}
-                <a 
-                  className="font-semibold text-[#01A684] hover:underline cursor-pointer" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate('/login-form');
-                  }}
-                >
-                  Masuk di sini
-                </a>
-              </p>
-            </div>
-          </div>
-
-          {/* Footer Info */}
-          <div className="flex flex-col gap-6 mt-4">
-            <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center text-center">
-              <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 text-[#01A684]">
-                <span className="material-symbols-outlined text-3xl">shield_person</span>
-              </div>
-              <h4 className="text-base font-semibold text-gray-900 mb-2">Data Aman Tersimpan</h4>
-              <p className="text-sm text-gray-500">Kami menggunakan enkripsi tingkat tinggi untuk memastikan data pribadi dan bisnis Anda aman bersama Titik Jual.</p>
-            </div>
-            <div className="text-center pb-2">
-              <p className="text-xs text-gray-400 font-medium">© 2026 Titik Jual • Solusi Pintar Manajemen Transaksi</p>
-            </div>
-          </div>
-
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
