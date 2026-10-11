@@ -29,9 +29,7 @@ export default function OwnerRegisterAkun() {
   const getOwnerId = () => {
     let activeOwner = localStorage.getItem('owner_id');
     if (!activeOwner) {
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      activeOwner = `toko_${randomNum}`;
-      localStorage.setItem('owner_id', activeOwner);
+      activeOwner = 'toko_123'; // Fallback aman jika sesi belum tersimpan
     }
     return activeOwner;
   };
@@ -59,12 +57,12 @@ export default function OwnerRegisterAkun() {
     try {
       const currentOwnerId = getOwnerId();
       
-      // Ubah password buatan user menjadi bentuk hash acak yang aman di database
+      // Ubah password buatan user menjadi bentuk hash aman di database
       const securePassword = await hashPassword(password);
 
       const payload = {
-        id: 'usr_' + Math.random().toString(36).substr(2, 9),
-        owner_id: currentOwnerId, // Format teks: nama_toko_3angka
+        id: crypto.randomUUID(), // Menggunakan UUID valid sesuai tipe data kolom id di Supabase
+        owner_id: currentOwnerId, // Format teks: owner_id konsisten milik toko aktif
         full_name: nama,
         username: username,
         email: email,

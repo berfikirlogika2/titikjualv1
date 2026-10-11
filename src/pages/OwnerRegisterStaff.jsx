@@ -22,13 +22,11 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mengambil atau membuat owner_id berbasis teks dengan format toko_3angka
+  // Mengambil owner_id teks milik owner yang sedang login
   const getOwnerId = () => {
     let activeOwner = localStorage.getItem('owner_id');
     if (!activeOwner) {
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      activeOwner = `toko_${randomNum}`;
-      localStorage.setItem('owner_id', activeOwner);
+      activeOwner = 'toko_123'; // Fallback aman jika sesi belum tersimpan
     }
     return activeOwner;
   };
@@ -52,22 +50,22 @@ export default function OwnerRegisterStaff() {
 
     setIsSubmitting(true);
     try {
-      const cleanName = nama.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6);
+      const cleanName = nama.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6) || 'staff';
       const defaultUsername = `${cleanName}${Math.floor(10 + Math.random() * 90)}`;
       const rawPassword = `${cleanName}123`;
       
-      // Hash password otomatis agar aman dan tidak terlihat mentah di database
+      // Hash password otomatis agar aman
       const securePassword = await hashPassword(rawPassword);
 
       const payload = {
-        id: 'usr_' + Math.random().toString(36).substr(2, 9),
-        owner_id: currentOwnerId, // Format teks: nama_toko_3angka
+        id: crypto.randomUUID(), // Menggunakan UUID valid sesuai tipe data kolom id di Supabase
+        owner_id: currentOwnerId, // Menggunakan owner_id teks yang konsisten dengan owner
         full_name: nama,
         username: defaultUsername,
         email: email,
         phone: telepon,
         role: 'staff',
-        password: securePassword, // Tersimpan ter-hash di database
+        password: securePassword,
         subscription_plan: 'free_trial',
         billing_cycle: 'monthly'
       };
