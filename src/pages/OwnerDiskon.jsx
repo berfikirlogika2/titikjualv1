@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Plus, Tag, Calendar, Trash2, CheckCircle2, AlertCircle, X, Search 
+  ArrowLeft, Plus, Tag, Calendar, Trash2, CheckCircle2, AlertCircle, X, Search, Users 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
@@ -39,12 +39,14 @@ export default function OwnerDiskon() {
   const [formTipe, setFormTipe] = useState('persen');
   const [formNilai, setFormNilai] = useState('');
   const [formMinBelanja, setFormMinBelanja] = useState('');
+  const [formKuota, setFormKuota] = useState('');
+  const [formTglMulai, setFormTglMulai] = useState('');
+  const [formTglSelesai, setFormTglSelesai] = useState('');
 
   const getOwnerId = () => {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Ambil data diskon dari Supabase berdasarkan owner_id aktif
   const fetchDiskon = async () => {
     setLoading(true);
     try {
@@ -77,6 +79,14 @@ export default function OwnerDiskon() {
     setIsSubmitting(true);
     try {
       const currentOwnerId = getOwnerId();
+      
+      let periodeText = 'Berlaku Seterusnya';
+      if (formTglMulai && formTglSelesai) {
+        periodeText = `${formTglMulai} s/d ${formTglSelesai}`;
+      } else if (formTglMulai) {
+        periodeText = `Mulai ${formTglMulai}`;
+      }
+
       const payload = {
         owner_id: currentOwnerId,
         kode: formKode.toUpperCase(),
@@ -84,7 +94,10 @@ export default function OwnerDiskon() {
         tipe: formTipe,
         nilai: formTipe === 'persen' ? parseFloat(formNilai) || 0 : parseRupiah(formNilai),
         min_maks: formMinBelanja ? `Min. Belanja Rp ${formMinBelanja}` : 'Tanpa Min. Belanja',
-        periode: 'Berlaku Seterusnya',
+        periode: periodeText,
+        kuota_maksimal: parseInt(formKuota) || 100,
+        tanggal_mulai: formTglMulai || null,
+        tanggal_selesai: formTglSelesai || null,
         status: 'aktif'
       };
 
@@ -100,6 +113,9 @@ export default function OwnerDiskon() {
       setFormNama(''); 
       setFormNilai(''); 
       setFormMinBelanja('');
+      setFormKuota('');
+      setFormTglMulai('');
+      setFormTglSelesai('');
       fetchDiskon();
     } catch (err) {
       console.error('Gagal menyimpan diskon:', err.message);
@@ -160,7 +176,7 @@ export default function OwnerDiskon() {
 
       <main className="p-4 lg:p-8 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-4 lg:gap-6">
 
-        {/* HERO CARD DISKON BERSIH TANPA WATERMARK */}
+        {/* HERO CARD DISKON */}
         <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-3xl p-5 lg:p-8 shadow-lg relative overflow-hidden min-h-[120px] lg:min-h-[150px] flex items-center">
           <div className="relative z-10 w-full">
             <span className="text-[10px] lg:text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
@@ -210,7 +226,7 @@ export default function OwnerDiskon() {
           </button>
         </div>
 
-        {/* DAFTAR DISKON - RESPONSIF GRID UNTUK TABLET & DESKTOP */}
+        {/* DAFTAR DISKON */}
         <section className="bg-white/70 backdrop-blur-md rounded-3xl border border-white/90 overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-[#E9EBED]/50 flex justify-between items-center">
             <h2 className="font-bold text-xs lg:text-sm uppercase text-[#181b2b] tracking-wider">Daftar Kupon Promo</h2>
@@ -262,6 +278,11 @@ export default function OwnerDiskon() {
                       <span className="text-[9px] text-[#181b2b] font-medium flex items-center gap-1">
                         <Calendar size={11} className="text-[#86899B]" /> {item.periode}
                       </span>
+                      {item.kuota_maksimal && (
+                        <span className="text-[9px] text-[#86899B] flex items-center gap-1 mt-0.5">
+                          <Users size={11} /> Kuota: {item.kuota_maksimal}x pakai
+                        </span>
+                      )}
                     </div>
 
                     <button 
@@ -283,7 +304,7 @@ export default function OwnerDiskon() {
       {/* MODAL TAMBAH DISKON */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-xs border border-[#E9EBED] animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-xs border border-[#E9EBED] animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Buat Diskon Baru</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] hover:text-[#181b2b] cursor-pointer bg-transparent border-0">
@@ -331,7 +352,7 @@ export default function OwnerDiskon() {
                     onClick={() => { setFormTipe('nominal'); setFormNilai(''); }} 
                     className={`py-2.5 rounded-xl font-bold text-xs border cursor-pointer ${formTipe === 'nominal' ? 'bg-[#01a684] text-white border-[#01a684]' : 'bg-white text-[#86899B] border-[#E9EBED]'}`}
                   >
-                    Nomor (Rp)
+                    Rupiah (Rp)
                   </button>
                 </div>
               </div>
@@ -357,6 +378,41 @@ export default function OwnerDiskon() {
                   placeholder="50.000" 
                   className="w-full bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" 
                 />
+              </div>
+
+              {/* Batasan Pengguna / Kuota */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Batas Maksimal Penggunaan (Kuota)</label>
+                <input 
+                  type="number" 
+                  value={formKuota} 
+                  onChange={(e) => setFormKuota(e.target.value)} 
+                  placeholder="Cth: 100 (kali digunakan)" 
+                  className="w-full bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" 
+                />
+                <span className="text-[9px] text-[#86899B] mt-1 block">Jika kuota habis terpakai, diskon otomatis tidak berlaku.</span>
+              </div>
+
+              {/* Rentang Waktu / Periode Mulai & Selesai */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Tanggal Mulai</label>
+                  <input 
+                    type="date" 
+                    value={formTglMulai} 
+                    onChange={(e) => setFormTglMulai(e.target.value)} 
+                    className="w-full bg-[#F1F2F6] rounded-xl p-3 font-medium outline-none focus:ring-2 focus:ring-[#01a684]" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Tanggal Berakhir</label>
+                  <input 
+                    type="date" 
+                    value={formTglSelesai} 
+                    onChange={(e) => setFormTglSelesai(e.target.value)} 
+                    className="w-full bg-[#F1F2F6] rounded-xl p-3 font-medium outline-none focus:ring-2 focus:ring-[#01a684]" 
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 mt-3">
