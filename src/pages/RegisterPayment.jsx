@@ -215,7 +215,7 @@ function RegisterPayment() {
                 <h3 className="text-sm font-bold text-[#181b2b]">Ringkasan Langganan</h3>
                 <button
                   type="button"
-                  onClick={() => navigate('/register-paket')}
+                  onClick={() => navigate('/registerplan')}
                   className="text-xs font-bold text-[#01A684] hover:underline bg-transparent border-0 cursor-pointer"
                 >
                   Ubah Paket
