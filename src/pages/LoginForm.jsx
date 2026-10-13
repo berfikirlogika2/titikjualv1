@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-// Fungsi helper hash password yang sama untuk mencocokkan saat login
+// Fungsi helper hash password untuk mencocokkan saat login
 async function hashPassword(plainPassword) {
   const encoder = new TextEncoder();
   const data = encoder.encode(plainPassword);
@@ -48,14 +48,13 @@ function LoginForm() {
       localStorage.setItem('username', data.username);
       localStorage.setItem('nama_lengkap', data.full_name || data.nama || '');
       
-      // Simpan owner_id berbasis teks (format: nama_toko_3angka)
+      // Simpan owner_id berbasis teks
       if (data.owner_id) {
         localStorage.setItem('owner_id', data.owner_id);
       }
 
       // PENGECEKAN ALUR BISNIS:
-      // Jika role-nya adalah 'owner' tetapi status langganannya belum aktif,
-      // cegah masuk dashboard utama dan arahkan ke halaman pembayaran langganan.
+      // Jika role-nya adalah 'owner' tetapi status langganannya belum aktif
       if (data.role === 'owner' && data.subscription_status !== 'active') {
         alert('Akun Anda belum memiliki langganan aktif. Silakan selesaikan pembayaran terlebih dahulu.');
         navigate('/register-payment');
@@ -64,11 +63,13 @@ function LoginForm() {
 
       alert(`Login berhasil sebagai ${data.role.toUpperCase()}`);
 
-      // Arahkan ke halaman berdasarkan role masing-masing jika sudah aktif
-      if (data.role === 'owner' || data.role === 'admin') {
+      // Arahkan ke halaman berdasarkan role masing-masing secara akurat
+      if (data.role === 'owner') {
         navigate('/owner-dashboard');
+      } else if (data.role === 'admin') {
+        navigate('/admin-dashboard');
       } else {
-        navigate('/pos'); // Halaman terminal kasir
+        navigate('/cashier-dashboard');
       }
     } catch (err) {
       console.error('Gagal login:', err.message);

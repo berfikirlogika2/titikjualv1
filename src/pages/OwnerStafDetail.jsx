@@ -4,6 +4,7 @@ import { ArrowLeft, Save, User } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
+// Fungsi helper untuk memformat angka menjadi format rupiah dengan titik (Cth: 40.000.000)
 const formatRupiah = (val) => {
   if (val === undefined || val === null || val === '') return '';
   const numberString = val.toString().replace(/[^,\d]/g, '');
@@ -18,6 +19,7 @@ const formatRupiah = (val) => {
   return split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
 };
 
+// Fungsi helper untuk membersihkan titik sebelum disimpan ke database (menjadi angka murni)
 const parseRupiah = (str) => {
   if (!str) return 0;
   return parseInt(str.toString().replace(/\./g, ''), 10) || 0;
@@ -25,7 +27,7 @@ const parseRupiah = (str) => {
 
 export default function OwnerStafDetail() {
   const navigate = useNavigate();
-  const { id } = useParams(); // ID UUID unik karyawan yang diklik
+  const { id } = useParams();
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,7 +92,7 @@ export default function OwnerStafDetail() {
         gaji_pokok: parseRupiah(formData.gajiPokok),
         periode_komisi: formData.periodeKomisi,
         tipe_komisi: formData.tipeKomisi,
-        nilai_komisi: parseFloat(formData.nilaiKomisi) || 0,
+        nilai_komisi: formData.tipeKomisi === 'nominal' ? parseRupiah(formData.nilaiKomisi) : (parseFloat(formData.nilaiKomisi) || 0),
         target_harian: parseRupiah(formData.targetHarian),
         target_bulanan: parseRupiah(formData.targetBulanan)
       };
@@ -179,7 +181,7 @@ export default function OwnerStafDetail() {
               <input 
                 type="text" 
                 value={formatRupiah(formData.gajiPokok)} 
-                onChange={(e) => setFormData({...formData, gajiPokok: e.target.value})}
+                onChange={(e) => setFormData({...formData, gajiPokok: e.target.value.replace(/\D/g, '')})}
                 className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
               />
             </div>
@@ -212,7 +214,7 @@ export default function OwnerStafDetail() {
                 type="text" 
                 value={formData.periodeKomisi === 'harian' ? formatRupiah(formData.targetHarian) : formatRupiah(formData.targetBulanan)} 
                 onChange={(e) => {
-                  const val = e.target.value;
+                  const val = e.target.value.replace(/\D/g, '');
                   if (formData.periodeKomisi === 'harian') {
                     setFormData({...formData, targetHarian: val});
                   } else {
@@ -248,7 +250,10 @@ export default function OwnerStafDetail() {
               <input 
                 type="text" 
                 value={formData.tipeKomisi === 'nominal' ? formatRupiah(formData.nilaiKomisi) : formData.nilaiKomisi} 
-                onChange={(e) => setFormData({...formData, nilaiKomisi: e.target.value})}
+                onChange={(e) => {
+                  const val = formData.tipeKomisi === 'nominal' ? e.target.value.replace(/\D/g, '') : e.target.value;
+                  setFormData({...formData, nilaiKomisi: val});
+                }}
                 placeholder={formData.tipeKomisi === 'persen' ? 'Cth: 2' : 'Cth: 5.000'}
                 className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
               />
