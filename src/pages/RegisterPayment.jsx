@@ -56,7 +56,7 @@ function RegisterPayment() {
   const handlePay = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data dari localStorage (menggantikan supabase.auth)
+      // 1. Ambil data dari localStorage
       const ownerId = localStorage.getItem('owner_id') || `toko_${Math.floor(100 + Math.random() * 900)}`;
       const registeredEmail = localStorage.getItem('regEmail') || 'owner@titikjual.com';
       const ownerName = localStorage.getItem('nama_lengkap') || 'Owner Titik Jual';
@@ -96,7 +96,6 @@ function RegisterPayment() {
           localStorage.setItem('paymentResult', JSON.stringify(result));
           
           try {
-            // Perbarui status langganan di tabel profiles berdasarkan owner_id teks
             const savedPlan = localStorage.getItem('selectedPlan') || 'growth';
             const savedCycle = localStorage.getItem('billingCycle') || 'monthly';
             
@@ -211,8 +210,17 @@ function RegisterPayment() {
             </div>
 
             {/* Ringkasan Pesanan Card */}
-            <div className="bg-[#F1F2F6]/60 border border-[#E9EBED] rounded-2xl p-5 mb-6 space-y-3">
-              <h3 className="text-sm font-bold text-[#181b2b] border-b border-[#E9EBED] pb-2">Ringkasan Langganan</h3>
+            <div className="bg-[#F1F2F6]/60 border border-[#E9EBED] rounded-2xl p-5 mb-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[#E9EBED] pb-2">
+                <h3 className="text-sm font-bold text-[#181b2b]">Ringkasan Langganan</h3>
+                <button
+                  type="button"
+                  onClick={() => navigate('/register-paket')}
+                  className="text-xs font-bold text-[#01A684] hover:underline bg-transparent border-0 cursor-pointer"
+                >
+                  Ubah Paket
+                </button>
+              </div>
               
               <div className="flex justify-between text-xs">
                 <span className="text-[#86899B]">Paket Dipilih</span>
