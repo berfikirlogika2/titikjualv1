@@ -13,18 +13,16 @@ export default function OwnerRegisterStaff() {
   const [jabatan, setJabatan] = useState('staff'); // 'staff', 'kasir', 'admin'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mengambil owner_id teks milik owner yang sedang login
   const getOwnerId = () => {
     let activeOwner = localStorage.getItem('owner_id');
     if (!activeOwner) {
-      activeOwner = 'toko_123'; // Fallback aman jika sesi belum tersimpan
+      activeOwner = 'toko_123';
     }
     return activeOwner;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const currentOwnerId = getOwnerId();
 
     // Jika Kasir atau Admin, arahkan ke halaman pembuatan akun khusus kredensial
@@ -41,16 +39,18 @@ export default function OwnerRegisterStaff() {
 
     setIsSubmitting(true);
     try {
-      // Staff MURNI untuk pendataan owner, tidak memerlukan username & password login
+      // Membuat nilai placeholder unik di balik layar agar lolos database tanpa akun login
+      const uniqueStaffId = 'staff_' + Math.random().toString(36).substr(2, 6);
+
       const payload = {
         id: crypto.randomUUID(),
         owner_id: currentOwnerId,
         full_name: nama,
-        username: null,       // Dikosongkan karena tidak punya akun login
+        username: uniqueStaffId,          // Placeholder di balik layar (tidak ditampilkan)
         email: email,
         phone: telepon,
         role: 'staff',
-        password: null,       // Dikosongkan karena tidak punya password
+        password: 'no_login_required',    // Placeholder password (staff tidak punya akun)
         subscription_plan: 'free_trial',
         billing_cycle: 'monthly'
       };
@@ -61,6 +61,7 @@ export default function OwnerRegisterStaff() {
 
       if (error) throw error;
 
+      // Notifikasi bersih tanpa memunculkan username/password sama sekali
       alert('Data staff berhasil ditambahkan!');
       navigate('/owner/staf');
     } catch (err) {
@@ -135,6 +136,7 @@ export default function OwnerRegisterStaff() {
                     onChange={(e) => setNama(e.target.value)}
                     placeholder="Contoh: Rina Melati"
                     className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                    required
                   />
                 </div>
 
@@ -146,6 +148,7 @@ export default function OwnerRegisterStaff() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Contoh: rina@gmail.com"
                     className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                    required
                   />
                 </div>
 
@@ -157,6 +160,7 @@ export default function OwnerRegisterStaff() {
                     onChange={(e) => setTelepon(e.target.value)}
                     placeholder="Contoh: 081299887766"
                     className="w-full bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]"
+                    required
                   />
                 </div>
               </>
@@ -165,7 +169,7 @@ export default function OwnerRegisterStaff() {
             {(jabatan === 'kasir' || jabatan === 'admin') && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-900 leading-relaxed flex flex-col gap-1">
                 <span className="font-bold uppercase tracking-wide text-[#01a684]">Pembuatan Akun {jabatan}</span>
-                <p>Nama lengkap, Gmail, nomor telepon, username, dan password login akan diinput secara lengkap pada halaman pembuatan akun berikutnya.</p>
+                <p>Jabatan ini memerlukan kredensial login. Anda akan diarahkan ke halaman pembuatan akun pada tahap berikutnya.</p>
               </div>
             )}
           </div>

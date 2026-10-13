@@ -27,7 +27,7 @@ export default function OwnerStaf() {
   const [stafList, setStafList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Ambil data staf, kasir, admin, dan owner berdasarkan owner_id teks di localStorage
+  // Ambil data real-time dari tabel profiles berdasarkan owner_id teks di localStorage
   useEffect(() => {
     const fetchStaf = async () => {
       setLoading(true);
@@ -49,7 +49,7 @@ export default function OwnerStaf() {
         
         if (data) {
           const formattedData = data.map(item => ({
-            id: item.id, // ID unik per record row
+            id: item.id, // ID unik dari baris database profiles
             nama: item.full_name || item.username || 'Tanpa Nama',
             role: item.role ? item.role.toUpperCase() : 'STAFF',
             gajiPokok: item.gaji_pokok || 3000000,
@@ -114,7 +114,7 @@ export default function OwnerStaf() {
           <UserPlus size={16} /> Tambah Staff & Karyawan
         </button>
 
-        {/* DAFTAR TIM STAF - LAYOUT COMPACT (BISA BANYAK DALAM SATU LAYAR) */}
+        {/* DAFTAR TIM STAF - LAYOUT COMPACT RESPONSIVE */}
         {loading ? (
           <p className="text-xs text-center text-[#86899B] py-8">Memuat data staf...</p>
         ) : stafList.length === 0 ? (
@@ -172,7 +172,7 @@ export default function OwnerStaf() {
                     </div>
                   </div>
 
-                  {/* Bagian bawah: Estimasi Komisi & Tombol Detail Rincian Unik */}
+                  {/* Bagian bawah: Estimasi Komisi & Tombol Detail Rincian Dinamis Berdasarkan ID */}
                   <div className="flex items-center justify-between pt-1 border-t border-[#E9EBED]/60 text-[11px]">
                     <div>
                       <span className="text-[8px] text-[#86899B] block">Komisi:</span>
