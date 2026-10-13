@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, User } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
 const formatRupiah = (val) => {
@@ -24,25 +25,100 @@ const parseRupiah = (str) => {
 
 export default function OwnerStafDetail() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams(); // ID UUID unik karyawan yang diklik
 
-  // State data rincian staf dengan fitur komisi lengkap
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
-    nama: id === '1' ? 'Sarah Jenkins' : 'Budi Santoso',
-    jabatan: 'Kasir',
-    telepon: '081234567890',
-    gajiPokok: '3.000.000',
-    periodeKomisi: 'bulanan', // 'harian' atau 'bulanan'
-    tipeKomisi: 'persen',    // 'persen' atau 'nominal'
+    nama: '',
+    jabatan: '',
+    telepon: '',
+    gajiPokok: '3000000',
+    periodeKomisi: 'bulanan',
+    tipeKomisi: 'persen',
     nilaiKomisi: '2',
-    targetHarian: '500.000',
-    targetBulanan: '15.000.000'
+    targetHarian: '500000',
+    targetBulanan: '15000000'
   });
 
-  const handleSave = () => {
-    alert('Perubahan data staf dan skema komisi berhasil disimpan!');
-    navigate('/owner/staf');
+  // Ambil data detail karyawan dari Supabase berdasarkan ID di URL
+  useEffect(() => {
+    const fetchDetailStaf = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setFormData({
+            nama: data.full_name || data.username || '',
+            jabatan: data.role ? data.role.toUpperCase() : 'STAFF',
+            telepon: data.phone || '',
+            gajiPokok: (data.gaji_pokok || 3000000).toString(),
+            periodeKomisi: data.periode_komisi || 'bulanan',
+            tipeKomisi: data.tipe_komisi || 'persen',
+            nilaiKomisi: (data.nilai_komisi || 2).toString(),
+            targetHarian: (data.target_harian || 500000).toString(),
+            targetBulanan: (data.target_bulanan || 15000000).toString()
+          });
+        }
+      } catch (err) {
+        console.error('Gagal memuat detail karyawan:', err.message);
+        alert('Gagal memuat data karyawan.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchDetailStaf();
+    }
+  }, [id]);
+
+  const handleSave = async () => {
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        full_name: formData.nama,
+        phone: formData.telepon,
+        gaji_pokok: parseRupiah(formData.gajiPokok),
+        periode_komisi: formData.periodeKomisi,
+        tipe_komisi: formData.tipeKomisi,
+        nilai_komisi: parseFloat(formData.nilaiKomisi) || 0,
+        target_harian: parseRupiah(formData.targetHarian),
+        target_bulanan: parseRupiah(formData.targetBulanan)
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      alert('Perubahan data staf dan skema komisi berhasil disimpan!');
+      navigate('/owner/staf');
+    } catch (err) {
+      console.error('Gagal memperbarui data:', err.message);
+      alert('Gagal menyimpan perubahan ke database: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-[#F1F2F6] min-h-screen flex items-center justify-center text-xs text-[#86899B]">
+        Memuat data karyawan...
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 lg:pb-12 font-sans antialiased relative">
@@ -94,7 +170,7 @@ export default function OwnerStafDetail() {
                 type="text" 
                 disabled
                 value={formData.jabatan} 
-                className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold text-slate-500 cursor-not-allowed"
+                className="w-full bg-slate-100 border border-[#E9EBED] rounded-xl p-3 font-bold text-slate-500 cursor-not-allowed uppercase"
               />
             </div>
 
@@ -162,7 +238,7 @@ export default function OwnerStafDetail() {
                   onClick={() => setFormData({...formData, tipeKomisi: 'nominal'})}
                   className={`py-2.5 rounded-xl font-bold text-xs border cursor-pointer border-0 ${formData.tipeKomisi === 'nominal' ? 'bg-[#01a684] text-white shadow-sm' : 'bg-white text-[#86899B] border border-[#E9EBED]'}`}
                 >
-                  Nominal (Rp)
+                  Nomor (Rp)
                 </button>
               </div>
             </div>
@@ -181,9 +257,10 @@ export default function OwnerStafDetail() {
 
           <button 
             onClick={handleSave}
+            disabled={isSubmitting}
             className="w-full mt-4 bg-[#01a684] text-white font-bold py-3.5 rounded-2xl shadow-sm hover:opacity-90 transition-all cursor-pointer border-0 flex items-center justify-center gap-2 text-xs"
           >
-            <Save size={16} /> Simpan Perubahan Staf
+            <Save size={16} /> {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan Staf'}
           </button>
         </div>
       </main>
