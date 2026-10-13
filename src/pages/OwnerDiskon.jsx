@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Plus, Tag, Calendar, Trash2, CheckCircle2, AlertCircle, X, Search, Users 
+  ArrowLeft, Plus, Tag, Calendar, Trash2, CheckCircle2, AlertCircle, X, Search, Users, Settings2, BarChart3, TrendingUp, Clock 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
@@ -33,6 +33,9 @@ export default function OwnerDiskon() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State untuk mode edit atau buat baru
+  const [editingId, setEditingId] = useState(null);
 
   const [formKode, setFormKode] = useState('');
   const [formNama, setFormNama] = useState('');
@@ -72,6 +75,35 @@ export default function OwnerDiskon() {
     fetchDiskon();
   }, []);
 
+  const handleOpenAddModal = () => {
+    setEditingId(null);
+    setFormKode('');
+    setFormNama('');
+    setFormTipe('persen');
+    setFormNilai('');
+    setFormMinBelanja('');
+    setFormKuota('');
+    setFormTglMulai('');
+    setFormTglSelesai('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item) => {
+    setEditingId(item.id);
+    setFormKode(item.kode || '');
+    setFormNama(item.nama || '');
+    setFormTipe(item.tipe || 'persen');
+    setFormNilai(item.tipe === 'nominal' ? formatRupiah(item.nilai) : (item.nilai?.toString() || ''));
+    
+    const minBelanjaMatch = item.min_maks ? item.min_maks.match(/\d[0-9.]*/) : null;
+    setFormMinBelanja(minBelanjaMatch ? minBelanjaMatch[0] : '');
+
+    setFormKuota(item.kuota_maksimal?.toString() || '');
+    setFormTglMulai(item.tanggal_mulai || '');
+    setFormTglSelesai(item.tanggal_selesai || '');
+    setIsModalOpen(true);
+  };
+
   const handleSaveDiskon = async (e) => {
     e.preventDefault();
     if (!formKode || !formNama || !formNilai) return;
@@ -101,21 +133,24 @@ export default function OwnerDiskon() {
         status: 'aktif'
       };
 
-      const { error } = await supabase
-        .from('discounts')
-        .insert([payload]);
+      if (editingId) {
+        const { error } = await supabase
+          .from('discounts')
+          .update(payload)
+          .eq('id', editingId);
 
-      if (error) throw error;
+        if (error) throw error;
+        alert('Voucher diskon berhasil diperbarui!');
+      } else {
+        const { error } = await supabase
+          .from('discounts')
+          .insert([payload]);
 
-      alert('Voucher diskon berhasil dibuat!');
+        if (error) throw error;
+        alert('Voucher diskon berhasil dibuat!');
+      }
+
       setIsModalOpen(false);
-      setFormKode(''); 
-      setFormNama(''); 
-      setFormNilai(''); 
-      setFormMinBelanja('');
-      setFormKuota('');
-      setFormTglMulai('');
-      setFormTglSelesai('');
       fetchDiskon();
     } catch (err) {
       console.error('Gagal menyimpan diskon:', err.message);
@@ -148,6 +183,11 @@ export default function OwnerDiskon() {
     d.kode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Statistik untuk Chart Navigasi / Ringkasan Penggunaan
+  const totalDiskonAktif = diskonList.filter(d => d.status === 'aktif').length;
+  const totalDiskon = diskonList.length;
+  const kuotaKeseluruhan = diskonList.reduce((acc, curr) => acc + (curr.kuota_maksimal || 100), 0);
+
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 lg:pb-12 font-sans antialiased relative">
       
@@ -166,7 +206,7 @@ export default function OwnerDiskon() {
           </h1>
 
           <button 
-            onClick={() => setIsModalOpen(true)} 
+            onClick={handleOpenAddModal} 
             className="w-9 h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0"
           >
             <Plus size={18} />
@@ -189,18 +229,64 @@ export default function OwnerDiskon() {
           </div>
         </div>
 
-        {/* BENTO GRID SUMMARY */}
-        <section className="grid grid-cols-2 gap-3 lg:gap-4">
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 p-4 lg:p-6 flex flex-col justify-between shadow-sm">
-            <span className="text-[10px] lg:text-xs font-extrabold text-[#86899B] uppercase tracking-wider">Voucher Aktif</span>
-            <div className="text-2xl lg:text-4xl font-black text-[#01a684] tabular-nums mt-2">
-              {diskonList.filter(d => d.status === 'aktif').length}
+        {/* KOTAK NAVIGASI / ANALYTICS CHART USAGE & MASA BERLAKU */}
+        <section className="bg-white/80 backdrop-blur-md rounded-3xl border border-white/90 p-5 lg:p-6 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-[#E9EBED]/60 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#01a684] flex items-center justify-center">
+                <BarChart3 size={18} />
+              </div>
+              <div>
+                <h3 className="text-xs lg:text-sm font-bold text-[#181b2b] uppercase tracking-wider">Statistik & Masa Berlaku Diskon</h3>
+                <p className="text-[10px] lg:text-xs text-[#86899B]">Ringkasan kuota terpakai dan periode aktif promo outlet</p>
+              </div>
             </div>
+            <span className="text-[10px] lg:text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-[#01a684] border border-emerald-200">
+              Live Analytics
+            </span>
           </div>
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 p-4 lg:p-6 flex flex-col justify-between shadow-sm">
-            <span className="text-[10px] lg:text-xs font-extrabold text-[#86899B] uppercase tracking-wider">Total Promo</span>
-            <div className="text-2xl lg:text-4xl font-black text-[#181b2b] tabular-nums mt-2">
-              {diskonList.length}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Kartu Statistik 1 */}
+            <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Total Kuota Promosi</span>
+                <span className="text-xl lg:text-2xl font-black text-[#181b2b]">{kuotaKeseluruhan} <span className="text-xs font-medium text-[#86899B]">X Pakai</span></span>
+                <span className="text-[9px] text-[#01a684] font-semibold flex items-center gap-1">
+                  <TrendingUp size={11} /> Alokasi sistem kasir
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-[#01a684] shadow-xs">
+                <Users size={20} />
+              </div>
+            </div>
+
+            {/* Kartu Statistik 2 */}
+            <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Voucher Status Aktif</span>
+                <span className="text-xl lg:text-2xl font-black text-[#01a684]">{totalDiskonAktif} <span className="text-xs font-medium text-[#86899B]">/ {totalDiskon}</span></span>
+                <span className="text-[9px] text-slate-500 font-semibold flex items-center gap-1">
+                  <CheckCircle2 size={11} className="text-[#01a684]" /> Siap digunakan kasir
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-[#01a684] shadow-xs">
+                <Tag size={20} />
+              </div>
+            </div>
+
+            {/* Kartu Statistik 3 */}
+            <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Masa Berlaku Promo</span>
+                <span className="text-sm font-bold text-[#181b2b] mt-1">Terjadwal & Fleksibel</span>
+                <span className="text-[9px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5">
+                  <Clock size={11} /> Otomatis kedaluwarsa
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-amber-500 shadow-xs">
+                <Calendar size={20} />
+              </div>
             </div>
           </div>
         </section>
@@ -219,7 +305,7 @@ export default function OwnerDiskon() {
           </div>
 
           <button 
-            onClick={() => setIsModalOpen(true)} 
+            onClick={handleOpenAddModal} 
             className="bg-[#01a684] text-white rounded-2xl px-5 py-3 flex items-center justify-center gap-2 font-bold text-xs lg:text-sm shadow-sm cursor-pointer hover:opacity-90 transition-all shrink-0"
           >
             <Plus size={16} /> Buat Voucher Diskon Baru
@@ -285,13 +371,22 @@ export default function OwnerDiskon() {
                       )}
                     </div>
 
-                    <button 
-                      onClick={() => handleDeleteDiskon(item.id)}
-                      className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer shrink-0 border-0 bg-transparent"
-                      title="Hapus Diskon"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button 
+                        onClick={() => handleOpenEditModal(item)}
+                        className="text-slate-500 hover:text-[#01a684] p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer border-0 bg-transparent"
+                        title="Edit Diskon"
+                      >
+                        <Settings2 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDiskon(item.id)}
+                        className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer border-0 bg-transparent"
+                        title="Hapus Diskon"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -301,12 +396,14 @@ export default function OwnerDiskon() {
 
       </main>
 
-      {/* MODAL TAMBAH DISKON */}
+      {/* MODAL TAMBAH / EDIT DISKON */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-xs border border-[#E9EBED] animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Buat Diskon Baru</h3>
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">
+                {editingId ? 'Edit Voucher Diskon' : 'Buat Diskon Baru'}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] hover:text-[#181b2b] cursor-pointer bg-transparent border-0">
                 <X size={18} />
               </button>
@@ -380,7 +477,6 @@ export default function OwnerDiskon() {
                 />
               </div>
 
-              {/* Batasan Pengguna / Kuota */}
               <div>
                 <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Batas Maksimal Penggunaan (Kuota)</label>
                 <input 
@@ -393,7 +489,6 @@ export default function OwnerDiskon() {
                 <span className="text-[9px] text-[#86899B] mt-1 block">Jika kuota habis terpakai, diskon otomatis tidak berlaku.</span>
               </div>
 
-              {/* Rentang Waktu / Periode Mulai & Selesai */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Tanggal Mulai</label>
@@ -428,7 +523,7 @@ export default function OwnerDiskon() {
                   disabled={isSubmitting}
                   className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0 hover:opacity-90 transition-opacity"
                 >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Diskon'}
+                  {isSubmitting ? 'Menyimpan...' : (editingId ? 'Simpan Perubahan' : 'Simpan Diskon')}
                 </button>
               </div>
             </form>
