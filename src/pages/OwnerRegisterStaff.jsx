@@ -4,15 +4,6 @@ import { ArrowLeft, UserPlus, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
-// Fungsi helper untuk keamanan password (hash SHA-256)
-async function hashPassword(plainPassword) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plainPassword);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 export default function OwnerRegisterStaff() {
   const navigate = useNavigate();
 
@@ -50,22 +41,16 @@ export default function OwnerRegisterStaff() {
 
     setIsSubmitting(true);
     try {
-      const cleanName = nama.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6) || 'staff';
-      const defaultUsername = `${cleanName}${Math.floor(10 + Math.random() * 90)}`;
-      const rawPassword = `${cleanName}123`;
-      
-      // Hash password otomatis agar aman
-      const securePassword = await hashPassword(rawPassword);
-
+      // Staff MURNI untuk pendataan owner, tidak memerlukan username & password login
       const payload = {
-        id: crypto.randomUUID(), // Menggunakan UUID valid sesuai tipe data kolom id di Supabase
-        owner_id: currentOwnerId, // Menggunakan owner_id teks yang konsisten dengan owner
+        id: crypto.randomUUID(),
+        owner_id: currentOwnerId,
         full_name: nama,
-        username: defaultUsername,
+        username: null,       // Dikosongkan karena tidak punya akun login
         email: email,
         phone: telepon,
         role: 'staff',
-        password: securePassword,
+        password: null,       // Dikosongkan karena tidak punya password
         subscription_plan: 'free_trial',
         billing_cycle: 'monthly'
       };
@@ -76,7 +61,7 @@ export default function OwnerRegisterStaff() {
 
       if (error) throw error;
 
-      alert(`Data staff berhasil ditambahkan!\nUsername login: ${defaultUsername}\nPassword: ${rawPassword}`);
+      alert('Data staff berhasil ditambahkan!');
       navigate('/owner/staf');
     } catch (err) {
       console.error('Gagal menyimpan staff:', err.message);
