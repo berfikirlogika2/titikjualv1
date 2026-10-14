@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Search, Plus, AlertTriangle, 
   X, Check, Trash2, Coffee, Edit3, Store, SlidersHorizontal, Settings, Layers, Package,
-  TrendingUp, TrendingDown, ShoppingBag, RefreshCw, AlertCircle, ScanBarcode, Camera 
+  TrendingUp, TrendingDown, RefreshCw, AlertCircle, ScanBarcode, Camera 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
@@ -142,7 +142,6 @@ export default function OwnerProduk() {
     }
   ]);
 
-  // Aktifkan Kamera Perangkat
   const startCamera = async () => {
     setIsScannerOpen(true);
     try {
@@ -153,11 +152,10 @@ export default function OwnerProduk() {
       }
     } catch (err) {
       console.error('Tidak dapat mengakses kamera:', err);
-      alert('Gagal mengakses kamera perangkat. Pastikan izin kamera diaktifkan.');
+      alert('Gagal mengakses kamera perangkat.');
     }
   };
 
-  // Matikan Kamera Perangkat
   const stopCamera = () => {
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
@@ -167,7 +165,6 @@ export default function OwnerProduk() {
   };
 
   const handleCaptureBarcode = () => {
-    // Simulasi hasil baca barcode dari kamera
     const mockBarcode = `BC-${Math.floor(100000 + Math.random() * 900000)}`;
     setFormSku(mockBarcode);
     stopCamera();
@@ -202,17 +199,6 @@ export default function OwnerProduk() {
     const status = evaluasiStatusProduk(p);
     return status.isHabis || status.isMin;
   });
-
-  const handleSimulasiPenjualan = async (id, currentTerjual) => {
-    try {
-      const newTerjual = (currentTerjual || 0) + 1;
-      const { error } = await supabase.from('products').update({ terjual: newTerjual }).eq('id', id);
-      if (error) throw error;
-      setProdukList(prev => prev.map(p => p.id === id ? { ...p, terjual: newTerjual } : p));
-    } catch (err) {
-      console.error('Gagal simulasi penjualan:', err.message);
-    }
-  };
 
   const handleOpenAddModal = () => {
     setIsEditMode(false);
@@ -485,7 +471,7 @@ export default function OwnerProduk() {
           </section>
         )}
 
-        {/* SEARCH & FILTER (DENGAN KETERANGAN TEKS KATEGORI DI SEBELAH IKON) */}
+        {/* SEARCH & FILTER */}
         <section className="flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#86899B]" />
@@ -517,47 +503,30 @@ export default function OwnerProduk() {
           <span className="text-[9px] lg:text-[10px] text-[#86899B] font-bold">{filteredProduk.length} Item</span>
         </div>
 
-        {/* GRID KARTU PRODUK */}
+        {/* GRID KARTU PRODUK (TANPA SIMULASI TERJUAL) */}
         {loading ? (
           <p className="text-xs text-center text-[#86899B] py-8">Memuat katalog produk...</p>
         ) : filteredProduk.length === 0 ? (
           <div className="text-center text-xs text-[#86899B] py-8 bg-white/60 rounded-2xl border border-white/80">Belum ada produk terdaftar di Supabase.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3">
             {filteredProduk.map((produk) => {
               const { isHabis, isMin, penyebab } = evaluasiStatusProduk(produk);
               const margin = !produk.pakaiVarian && produk.hargaJual > 0 ? Math.round(((produk.hargaJual - (produk.hpp || 0)) / produk.hargaJual) * 100) : null;
 
               return (
-                <div key={produk.id} className="bg-white rounded-2xl p-3 border border-[#E9EBED] shadow-xs flex flex-col gap-2.5 relative">
+                <div key={produk.id} className="bg-white rounded-xl border border-[#E9EBED] p-2.5 shadow-2xs flex flex-col justify-between gap-2 relative">
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isHabis ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-[#01a684]'}`}>
-                        <Coffee size={15} />
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 truncate">
+                        <h4 className="text-[11px] font-bold text-[#181b2b] truncate">{produk.nama}</h4>
+                        {isHabis && <span className="bg-red-50 text-red-600 text-[8px] font-bold px-1 rounded shrink-0">Habis</span>}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <h4 className="text-[11px] lg:text-xs font-bold text-[#181b2b] truncate">{produk.nama}</h4>
-                          {isHabis && (
-                            <span className="bg-red-50 text-red-600 text-[8px] font-bold px-1 py-0.2 rounded shrink-0">Habis</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 mt-0.2">
-                          <span className="text-[9px] text-[#86899B] bg-slate-100 px-1.5 py-0.2 rounded font-medium">{produk.kategori}</span>
-                          <span className="text-[8px] font-mono text-slate-400">{produk.sku}</span>
-                        </div>
-                      </div>
+                      <span className="text-[8px] text-[#86899B] bg-slate-100 px-1.5 py-0.2 rounded font-medium mt-0.5 inline-block truncate max-w-[120px]">{produk.kategori}</span>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button 
-                        onClick={() => handleSimulasiPenjualan(produk.id, produk.terjual)}
-                        className="h-7 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#01a684] flex items-center gap-0.5 font-bold text-[9px] cursor-pointer"
-                        title="Simulasi Penjualan (+1)"
-                      >
-                        <ShoppingBag size={11} /> +Terjual
-                      </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button 
                         onClick={() => handleOpenEditModal(produk)}
                         className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-[#01a684] flex items-center justify-center cursor-pointer"
@@ -576,43 +545,35 @@ export default function OwnerProduk() {
                   </div>
 
                   {!produk.pakaiVarian && (
-                    <div className="bg-[#F1F2F6]/70 p-2 rounded-xl grid grid-cols-3 gap-1 text-[10px]">
+                    <div className="bg-[#F1F2F6]/70 p-2 rounded-lg grid grid-cols-2 gap-1 text-[10px]">
                       <div>
-                        <span className="text-[8px] font-bold text-slate-400 block uppercase">HPP</span>
+                        <span className="text-[7px] font-bold text-slate-400 block uppercase">HPP / Jual</span>
                         <span className="font-bold text-slate-700">Rp {formatRupiah(produk.hpp || 0)}</span>
                       </div>
-                      <div>
-                        <span className="text-[8px] font-bold text-slate-400 block uppercase">Jual</span>
-                        <span className="font-bold text-[#01a684]">Rp {formatRupiah(produk.hargaJual || 0)}</span>
-                      </div>
                       <div className="text-right">
-                        <span className="text-[8px] font-bold text-slate-400 block uppercase">Margin</span>
-                        <span className="font-bold text-indigo-600">{margin !== null ? `${margin}%` : '-'}</span>
+                        <span className="text-[7px] font-bold text-slate-400 block uppercase">Margin</span>
+                        <span className="font-bold text-[#01a684]">{margin !== null ? `${margin}%` : '-'}</span>
                       </div>
                     </div>
                   )}
 
                   {produk.pakaiVarian && produk.varian && produk.varian.length > 0 && (
-                    <div className="bg-[#F1F2F6]/70 p-2 rounded-xl flex flex-col gap-1.5">
-                      <span className="text-[8px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                        <Layers size={10} /> Varian ({produk.varian.length}):
-                      </span>
-                      <div className="flex flex-col gap-1">
-                        {produk.varian.map((v, i) => (
-                          <div key={i} className="bg-white border border-[#E9EBED] px-2 py-1 rounded-lg flex justify-between items-center text-[10px]">
-                            <span className="font-bold text-slate-800">{v.nama}</span>
-                            <span className="font-bold text-[#01a684]">Rp {formatRupiah(v.hargaJual)}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="bg-[#F1F2F6]/70 p-2 rounded-lg flex flex-col gap-1 text-[10px]">
+                      <span className="text-[7px] font-bold uppercase text-slate-400">Varian ({produk.varian.length}):</span>
+                      {produk.varian.map((v, i) => (
+                        <div key={i} className="flex justify-between items-center text-[10px]">
+                          <span className="font-bold text-slate-800 truncate max-w-[80px]">{v.nama}</span>
+                          <span className="font-bold text-[#01a684]">Rp {formatRupiah(v.hargaJual)}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center pt-1 border-t border-[#E9EBED]/50 text-[10px]">
-                    <span className="text-slate-500 font-medium">
-                      {produk.tipeStok === 'bahan' ? `Resep: ${produk.resep.length} bahan` : `Stok: ${produk.stokManual} unit`}
+                  <div className="flex justify-between items-center pt-1 border-t border-[#E9EBED]/50 text-[9px]">
+                    <span className="text-slate-500 truncate max-w-[100px]">
+                      {produk.tipeStok === 'bahan' ? `Resep: ${produk.resep.length} bhn` : `Stok: ${produk.stokManual}`}
                     </span>
-                    <span className="bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded text-[9px]">
+                    <span className="bg-slate-100 text-slate-600 font-bold px-1.5 py-0.2 rounded">
                       Terjual: {produk.terjual || 0}
                     </span>
                   </div>
@@ -624,12 +585,12 @@ export default function OwnerProduk() {
         )}
       </main>
 
-      {/* MODAL FILTER KATEGORI (DENGAN TOMBOL GEAR KELOLA KATEGORI DI DALAMNYA) */}
+      {/* MODAL FILTER KATEGORI */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-2.5 text-xs border border-[#E9EBED]">
+          <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-2.5 text-xs border border-[#E9EBED]">
             <div className="flex justify-between items-center mb-1">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
               <div className="flex items-center gap-1">
                 <button 
                   onClick={() => { setIsFilterModalOpen(false); setIsKategoriModalOpen(true); }}
@@ -658,7 +619,7 @@ export default function OwnerProduk() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Kelola Kategori Produk</h3>
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Kelola Kategori Produk</h3>
               <button onClick={() => setIsKategoriModalOpen(false)} className="text-[#86899B]"><X size={16} /></button>
             </div>
             <form onSubmit={handleAddKategori} className="flex gap-2">
@@ -678,7 +639,7 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL KAMERA / SCANNER BARCODE (MUNCUL DI ATAS POP-UP TAMBAH MENU) */}
+      {/* MODAL KAMERA / SCANNER BARCODE */}
       {isScannerOpen && (
         <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl flex flex-col gap-4 text-xs items-center text-center">
@@ -696,10 +657,10 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL TAMBAH / EDIT PRODUK */}
+      {/* MODAL TAMBAH / EDIT PRODUK (DENGAN PADDING BAWAH AGAR TOMBOL SIMPAN TIDAK TERTUTUP) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED] relative">
+          <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED] relative pb-28 lg:pb-6">
             <div className="flex justify-between items-center border-b border-[#E9EBED] pb-2">
               <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B]"><X size={18} /></button>
@@ -718,7 +679,6 @@ export default function OwnerProduk() {
                   </select>
                 </div>
                 
-                {/* SKU / Barcode dengan Tombol Kamera HP */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">SKU / Barcode</label>
                   <div className="flex gap-1">
@@ -743,7 +703,6 @@ export default function OwnerProduk() {
                 </div>
               </div>
 
-              {/* RESEP BAHAN BAKU DENGAN SATUAN OTOMATIS MENGIKUTI GUDANG */}
               {formTipeStok === 'bahan' && (
                 <div className="flex flex-col gap-2 bg-[#F1F2F6] p-3 rounded-2xl border border-[#E9EBED]">
                   <div className="flex justify-between items-center">
@@ -815,7 +774,6 @@ export default function OwnerProduk() {
                 </label>
               </div>
 
-              {/* OPSI VARIAN DENGAN RESEP BAHAN & QTY SPESIFIK PER VARIAN */}
               {formPakaiVarian && (
                 <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-3">
                   <div className="flex justify-between items-center">
@@ -848,7 +806,6 @@ export default function OwnerProduk() {
                           }} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold text-[#01a684] outline-none" required />
                         </div>
 
-                        {/* Komposisi Resep Bahan untuk Varian Ini */}
                         <div className="bg-[#F1F2F6]/60 p-2.5 rounded-xl border border-slate-200 flex flex-col gap-2">
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="font-bold text-slate-700">Komposisi Bahan Varian Ini:</span>
@@ -897,9 +854,10 @@ export default function OwnerProduk() {
                 </div>
               )}
 
-              <div className="flex gap-2 mt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer">Batal</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Simpan Menu')}</button>
+              {/* TOMBOL AKSI FIXED DI BAGIAN BAWAH MODAL AGAR TIDAK TERTUTUP */}
+              <div className="flex gap-2 mt-4 pt-2 border-t border-[#E9EBED] bg-white sticky bottom-0">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : 'Simpan Menu'}</button>
               </div>
             </form>
           </div>
