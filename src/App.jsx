@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SplashScreen from './pages/SplashScreen';
-import Login from './pages/Login';                
+import Login from './pages/Login';               
 import LoginForm from './pages/LoginForm';       
-import Register from './pages/Register';         
+import Register from './pages/Register';        
 import RegisterOTP from './pages/RegisterOTP';   
-import RegisterPlan from './pages/RegisterPlan';       
+import RegisterPlan from './pages/RegisterPlan';      
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
 import TermsAndConditions from './pages/TermsAndConditions'; 
@@ -17,7 +17,6 @@ import OwnerStaf from './pages/OwnerStaf';
 import OwnerStafDetail from './pages/OwnerStafDetail';       // <-- Halaman Detail Staf
 import OwnerRegisterStaff from './pages/OwnerRegisterStaff'; // <-- Halaman Tambah Staf
 import OwnerRegisterAkun from './pages/OwnerRegisterAkun';   // <-- Halaman Buat Akun Kasir/Admin
-import DashboardKinerjaStaf from './pages/DashboardKinerjaStaf';
 import OwnerBahan from './pages/OwnerBahan';
 import OwnerPajak from './pages/OwnerPajak';
 import OwnerDiskon from './pages/OwnerDiskon';
@@ -45,17 +44,16 @@ function App() {
         <Route path="/cashier-dashboard" element={<CashierDashboard />} />   
 
         {/* Dashboard Admin */}
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />     
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />    
 
         {/* Modul Owner */}
         <Route path="/owner-dashboard" element={<OwnerDashboardPage />} />
         <Route path="/owner/laporan" element={<OwnerLaporan />} />
         <Route path="/owner/transaksi" element={<OwnerSemuaTransaksi />} />
         <Route path="/owner/staf" element={<OwnerStaf />} />
-        <Route path="/owner/staf/detail/:id" element={<OwnerStafDetail />} />       {/* <-- Rute Detail Staf */}
-        <Route path="/owner/register-staff" element={<OwnerRegisterStaff />} />     {/* <-- Rute Tambah Staf */}
-        <Route path="/owner/register-akun" element={<OwnerRegisterAkun />} />       {/* <-- Rute Buat Akun */}
-        <Route path="/owner/kinerja-staf" element={<DashboardKinerjaStaf />} />
+        <Route path="/owner/staf/detail/:id" element={<OwnerStafDetail />} />      {/* <-- Rute Detail Staf */}
+        <Route path="/owner/register-staff" element={<OwnerRegisterStaff />} />    {/* <-- Rute Tambah Staf */}
+        <Route path="/owner/register-akun" element={<OwnerRegisterAkun />} />      {/* <-- Rute Buat Akun */}
         <Route path="/owner/bahan" element={<OwnerBahan />} />
         <Route path="/owner/pajak" element={<OwnerPajak />} />
         <Route path="/owner/diskon" element={<OwnerDiskon />} />
