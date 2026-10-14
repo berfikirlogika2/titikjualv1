@@ -40,7 +40,6 @@ export default function OwnerBahan() {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Ambil data kategori dari Supabase
   const fetchKategori = async () => {
     try {
       const currentOwnerId = getOwnerId();
@@ -53,10 +52,8 @@ export default function OwnerBahan() {
       if (data && data.length > 0) {
         setDaftarKategori(data.map(item => item.nama_kategori));
       } else {
-        // Default kategori jika masih kosong
         const defaultCats = ['Minuman & Kopi', 'Dairy & Susu', 'Pemanis & Sirup', 'Bahan Makanan', 'Kemasan & Plastik'];
         setDaftarKategori(defaultCats);
-        // Masukkan default ke Supabase
         for (let cat of defaultCats) {
           await supabase.from('ingredient_categories').insert([{ owner_id: currentOwnerId, nama_kategori: cat }]);
         }
@@ -67,7 +64,6 @@ export default function OwnerBahan() {
     }
   };
 
-  // Ambil data bahan dari Supabase
   const fetchBahan = async () => {
     setLoadingBahan(true);
     try {
@@ -108,7 +104,6 @@ export default function OwnerBahan() {
   const [filterHanyaKritis, setFilterHanyaKritis] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-  // Modal Tambah / Edit Bahan
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formNama, setFormNama] = useState('');
@@ -263,7 +258,6 @@ export default function OwnerBahan() {
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 lg:pb-12 font-sans antialiased relative">
       
-      {/* HEADER PRESISI BAKU */}
       <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-4 lg:px-10 pt-[env(safe-area-inset-top)]">
         <div className="h-14 lg:h-16 flex items-center justify-between relative max-w-md lg:max-w-7xl mx-auto">
           <button 
@@ -289,7 +283,6 @@ export default function OwnerBahan() {
 
       <main className="p-4 lg:p-8 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-4 lg:gap-6">
 
-        {/* HERO CARD INVENTARIS BERSIH TANPA WATERMARK */}
         <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-3xl p-5 lg:p-8 shadow-lg relative overflow-hidden min-h-[120px] lg:min-h-[150px] flex items-center">
           <div className="relative z-10 w-full">
             <span className="text-[10px] lg:text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
@@ -302,7 +295,6 @@ export default function OwnerBahan() {
           </div>
         </div>
 
-        {/* BENTO CARDS SUMMARY (TOTAL ITEM & 3 BAHAN KRITIS TERATAS) */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
           <div className="bg-white/70 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 p-4 lg:p-6 flex flex-col justify-between shadow-sm">
             <span className="text-[10px] lg:text-xs font-extrabold text-[#86899B] uppercase tracking-wider">Total Item Bahan Baku</span>
@@ -329,7 +321,7 @@ export default function OwnerBahan() {
                 <span className="text-xs text-slate-500 font-medium">Semua stok bahan aman mencukupi.</span>
               ) : (
                 bahanMenipisList.slice(0, 3).map((item, idx) => (
-                  <div key={item.id} className={`text-xs font-bold flex justify-between items-center ${filterH₂Kritis ? 'text-white' : 'text-[#181b2b]'}`}>
+                  <div key={item.id} className={`text-xs font-bold flex justify-between items-center ${filterHanyaKritis ? 'text-white' : 'text-[#181b2b]'}`}>
                     <span>{idx + 1}. {item.nama}</span>
                     <span className="text-red-600 bg-white/90 px-2 py-0.2 rounded text-[10px]">{item.stok} {item.satuan}</span>
                   </div>
@@ -360,7 +352,6 @@ export default function OwnerBahan() {
           <Plus size={16} /> Tambah Bahan Baku
         </button>
 
-        {/* DAFTAR BAHAN BAKU: 3 KOTAK SEJAJAR KE SAMPING (GRID 3 KOLOM) DENGAN IKON GEAR EDIT */}
         <section className="bg-white/70 backdrop-blur-md rounded-3xl border border-white/90 overflow-hidden shadow-sm p-4 lg:p-6">
           <div className="pb-4 mb-4 border-b border-[#E9EBED]/50 flex justify-between items-center">
             <h2 className="font-bold text-xs lg:text-sm uppercase text-[#181b2b] tracking-wider">Daftar Bahan Baku & HPP</h2>
@@ -383,7 +374,6 @@ export default function OwnerBahan() {
                         <span className="text-[9px] lg:text-[10px] text-[#86899B] bg-slate-100 px-2 py-0.5 rounded-md font-medium mt-1 inline-block">{bahan.kategori}</span>
                       </div>
                       
-                      {/* Tombol Aksi (Gear Edit & Hapus) */}
                       <div className="flex items-center gap-1 shrink-0">
                         <button 
                           onClick={() => handleOpenEditModal(bahan)}
@@ -425,7 +415,6 @@ export default function OwnerBahan() {
 
       </main>
 
-      {/* Modal Tambah / Edit Bahan Baku */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4 text-xs border border-[#E9EBED]">
@@ -478,7 +467,6 @@ export default function OwnerBahan() {
         </div>
       )}
 
-      {/* Modal Kelola Kategori */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
@@ -500,7 +488,6 @@ export default function OwnerBahan() {
         </div>
       )}
 
-      {/* Modal Filter Kategori */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-2 text-xs border border-[#E9EBED]">
