@@ -183,7 +183,6 @@ export default function OwnerDiskon() {
     d.kode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Statistik untuk Chart Navigasi / Ringkasan Penggunaan
   const totalDiskonAktif = diskonList.filter(d => d.status === 'aktif').length;
   const totalDiskon = diskonList.length;
   const kuotaKeseluruhan = diskonList.reduce((acc, curr) => acc + (curr.kuota_maksimal || 100), 0);
@@ -229,7 +228,7 @@ export default function OwnerDiskon() {
           </div>
         </div>
 
-        {/* KOTAK NAVIGASI / ANALYTICS CHART USAGE & MASA BERLAKU */}
+        {/* KOTAK NAVIGASI / ANALYTICS CHART USAGE & MASA BERLAKU (DI BAWAH HERO CARD) */}
         <section className="bg-white/80 backdrop-blur-md rounded-3xl border border-white/90 p-5 lg:p-6 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between border-b border-[#E9EBED]/60 pb-3">
             <div className="flex items-center gap-2">
@@ -247,7 +246,6 @@ export default function OwnerDiskon() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Kartu Statistik 1 */}
             <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Total Kuota Promosi</span>
@@ -261,7 +259,6 @@ export default function OwnerDiskon() {
               </div>
             </div>
 
-            {/* Kartu Statistik 2 */}
             <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Voucher Status Aktif</span>
@@ -275,7 +272,6 @@ export default function OwnerDiskon() {
               </div>
             </div>
 
-            {/* Kartu Statistik 3 */}
             <div className="bg-[#F1F2F6]/70 rounded-2xl p-4 flex items-center justify-between border border-[#E9EBED]/50">
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase text-[#86899B] tracking-wider">Masa Berlaku Promo</span>
@@ -312,7 +308,7 @@ export default function OwnerDiskon() {
           </button>
         </div>
 
-        {/* DAFTAR DISKON */}
+        {/* DAFTAR DISKON DENGAN TOMBOL GEAR & TRASH */}
         <section className="bg-white/70 backdrop-blur-md rounded-3xl border border-white/90 overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-[#E9EBED]/50 flex justify-between items-center">
             <h2 className="font-bold text-xs lg:text-sm uppercase text-[#181b2b] tracking-wider">Daftar Kupon Promo</h2>
@@ -371,20 +367,21 @@ export default function OwnerDiskon() {
                       )}
                     </div>
 
+                    {/* Tombol Aksi (Gear Edit & Hapus Trash) */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button 
                         onClick={() => handleOpenEditModal(item)}
                         className="text-slate-500 hover:text-[#01a684] p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer border-0 bg-transparent"
                         title="Edit Diskon"
                       >
-                        <Settings2 size={14} />
+                        <Settings2 size={15} />
                       </button>
                       <button 
                         onClick={() => handleDeleteDiskon(item.id)}
                         className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer border-0 bg-transparent"
                         title="Hapus Diskon"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>
