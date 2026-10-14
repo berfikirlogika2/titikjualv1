@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Search, Plus, AlertTriangle, 
   X, Check, Trash2, Coffee, Edit3, Store, SlidersHorizontal, Settings, Layers, Package,
-  TrendingUp, TrendingDown, ShoppingBag, RefreshCw, AlertCircle
+  TrendingUp, TrendingDown, ShoppingBag, RefreshCw, AlertCircle, ScanBarcode, Camera 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
@@ -39,20 +39,18 @@ export default function OwnerProduk() {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Ambil bahan dari Supabase untuk resep
   const fetchMasterBahan = async () => {
     try {
       const currentOwnerId = getOwnerId();
       const { data } = await supabase.from('ingredients').select('*').eq('owner_id', currentOwnerId);
       if (data) {
-        setMasterBahan(data.map(item => ({ id: item.id, nama: item.nama, stok: Number(item.stok), satuan: item.satuan })));
+        setMasterBahan(data.map(item => ({ id: item.id, nama: item.nama, stok: Number(item.stok), satuan: item.satuan || 'kg' })));
       }
     } catch (err) {
       console.error('Gagal mengambil bahan:', err.message);
     }
   };
 
-  // Ambil kategori produk dari Supabase
   const fetchKategoriProduk = async () => {
     try {
       const currentOwnerId = getOwnerId();
@@ -65,7 +63,6 @@ export default function OwnerProduk() {
     }
   };
 
-  // Ambil data produk dari Supabase
   const fetchProduk = async () => {
     setLoading(true);
     try {
@@ -109,8 +106,6 @@ export default function OwnerProduk() {
 
   const [isKategoriModalOpen, setIsKategoriModalOpen] = useState(false);
   const [formKategoriBaru, setFormKategoriBaru] = useState('');
-  const [editingKategoriIndex, setEditingKategoriIndex] = useState(null);
-  const [editingKategoriText, setEditingKategoriText] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKategoriFilter, setSelectedKategoriFilter] = useState('Semua');
@@ -119,7 +114,12 @@ export default function OwnerProduk() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeProductId, setActiveProductId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
+  // State Scanner / Kamera Barcode
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerInput, setScannerInput] = useState('');
+  const scannerRef = useRef(null);
+
   // Form State Produk
   const [formNama, setFormNama] = useState('');
   const [formKategori, setFormKategori] = useState(daftarKategoriProduk[0] || 'Minuman');
@@ -131,9 +131,19 @@ export default function OwnerProduk() {
   const [formHpp, setFormHpp] = useState('');
   const [formHargaJual, setFormHargaJual] = useState('');
   const [formPakaiVarian, setFormPakaiVarian] = useState(false);
-  const [formVarianList, setFormVarianList] = useState([{ id: Date.now(), nama: '', hpp: '', hargaJual: '' }]);
+  
+  // Varian dengan Resep Bahan & Qty Spesifik per Varian
+  const [formVarianList, setFormVarianList] = useState([
+    { 
+      id: Date.now(), 
+      nama: '', 
+      hpp: '', 
+      hargaJual: '', 
+      resepVarian: [{ bahanId: '', qty: '' }] 
+    }
+  ]);
 
-  // --- LOGIK ANALITIK ---
+  // --- ANALITIK ---
   const sortedByTerjualDesc = [...produkList].sort((a, b) => (b.terjual || 0) - (a.terjual || 0));
   const top5Terlaris = sortedByTerjualDesc.slice(0, 5);
   const maxTerlarisQty = top5Terlaris.length > 0 ? (top5Terlaris[0].terjual || 1) : 1;
@@ -186,7 +196,7 @@ export default function OwnerProduk() {
     setFormHpp('');
     setFormHargaJual('');
     setFormPakaiVarian(false);
-    setFormVarianList([{ id: Date.now(), nama: '', hpp: '', hargaJual: '' }]);
+    setFormVarianList([{ id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }]);
     setIsModalOpen(true);
   };
 
@@ -203,8 +213,22 @@ export default function OwnerProduk() {
     setFormHpp(produk.hpp ? formatRupiah(produk.hpp) : '');
     setFormHargaJual(produk.hargaJual ? formatRupiah(produk.hargaJual) : '');
     setFormPakaiVarian(produk.pakaiVarian || false);
-    setFormVarianList(produk.varian && produk.varian.length > 0 ? produk.varian.map(v => ({ id: v.id || Date.now() + Math.random(), nama: v.nama, hpp: formatRupiah(v.hpp), hargaJual: formatRupiah(v.hargaJual) })) : [{ id: Date.now(), nama: '', hpp: '', hargaJual: '' }]);
+    setFormVarianList(produk.varian && produk.varian.length > 0 ? produk.varian.map(v => ({ 
+      id: v.id || Date.now() + Math.random(), 
+      nama: v.nama, 
+      hpp: formatRupiah(v.hpp), 
+      hargaJual: formatRupiah(v.hargaJual),
+      resepVarian: v.resepVarian || [{ bahanId: '', qty: '' }]
+    })) : [{ id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }]);
     setIsModalOpen(true);
+  };
+
+  // Simulasikan Pemindaian Barcode via Scanner Hardware / Kamera
+  const handleSimulateScan = () => {
+    const scannedCode = `BARCODE-${Math.floor(100000 + Math.random() * 900000)}`;
+    setFormSku(scannedCode);
+    setIsScannerOpen(false);
+    alert(`Berhasil memindai SKU / Barcode: ${scannedCode}`);
   };
 
   const handleAddKategori = async (e) => {
@@ -255,7 +279,7 @@ export default function OwnerProduk() {
       if (formTipeStok === 'bahan') {
         formattedResep = selectedResep.filter(r => r.bahanId).map(r => {
           const b = masterBahan.find(mb => mb.id === r.bahanId);
-          return { bahanId: r.bahanId, nama: b ? b.nama : 'Bahan', qty: parseFloat(r.qty) || 0 };
+          return { bahanId: r.bahanId, nama: b ? b.nama : 'Bahan', satuan: b ? b.satuan : 'kg', qty: parseFloat(r.qty) || 0 };
         });
       }
 
@@ -263,7 +287,11 @@ export default function OwnerProduk() {
         id: v.id || Date.now(),
         nama: v.nama,
         hpp: parseRupiah(v.hpp),
-        hargaJual: parseRupiah(v.hargaJual)
+        hargaJual: parseRupiah(v.hargaJual),
+        resepVarian: (v.resepVarian || []).filter(rv => rv.bahanId).map(rv => {
+          const b = masterBahan.find(mb => mb.id === rv.bahanId);
+          return { bahanId: rv.bahanId, nama: b ? b.nama : 'Bahan', satuan: b ? b.satuan : 'kg', qty: parseFloat(rv.qty) || 0 };
+        })
       })) : [];
 
       const payload = {
@@ -336,19 +364,11 @@ export default function OwnerProduk() {
             Produk & Resep
           </h1>
 
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setIsKategoriModalOpen(true)} 
-              className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0"
-              title="Kelola Kategori"
-            >
-              <Store size={16} />
-            </button>
-          </div>
+          <div className="w-8 h-8" />
         </div>
       </header>
 
-      {/* MAIN LAYOUT - COMPACT DI MOBILE, GRID DI TABLET/DESKTOP */}
+      {/* MAIN LAYOUT */}
       <main className="p-3 lg:p-8 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
 
         {/* HERO BANNER BERSIH TANPA WATERMARK */}
@@ -580,6 +600,35 @@ export default function OwnerProduk() {
         )}
       </main>
 
+      {/* MODAL FILTER KATEGORI (DENGAN TOMBOL GEAR KELOLA KATEGORI DI DALAMNYA) */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-2.5 text-xs border border-[#E9EBED]">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => { setIsFilterModalOpen(false); setIsKategoriModalOpen(true); }}
+                  className="w-7 h-7 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer border border-[#E9EBED]"
+                  title="Kelola & Tambah Kategori"
+                >
+                  <Settings size={14} />
+                </button>
+                <button onClick={() => setIsFilterModalOpen(false)} className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"><X size={15} /></button>
+              </div>
+            </div>
+            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+              <span>Semua Kategori</span>{selectedKategoriFilter === 'Semua' && <Check size={13} />}
+            </button>
+            {daftarKategoriProduk.map(k => (
+              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+                <span>{k}</span>{selectedKategoriFilter === k && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* MODAL KELOLA KATEGORI */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -605,22 +654,20 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL FILTER KATEGORI */}
-      {isFilterModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-2 text-xs border border-[#E9EBED]">
-            <div className="flex justify-between items-center mb-1">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
-              <button onClick={() => setIsFilterModalOpen(false)} className="text-[#86899B]"><X size={15} /></button>
+      {/* MODAL SCANNER BARCODE / KAMERA */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl flex flex-col gap-4 text-xs items-center text-center">
+            <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Scan Barcode Produk</h3>
+            <div className="w-48 h-48 bg-slate-100 rounded-2xl border-2 border-dashed border-[#01a684] flex flex-col items-center justify-center gap-2 relative overflow-hidden">
+              <Camera size={36} className="text-[#01a684] animate-pulse" />
+              <span className="text-[10px] text-slate-500 font-medium">Arahkan kamera ke barcode atau gunakan scanner hardware</span>
+              <div className="absolute inset-x-0 h-1 bg-[#01a684] animate-bounce top-1/2" />
             </div>
-            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
-              <span>Semua Kategori</span>{selectedKategoriFilter === 'Semua' && <Check size={13} />}
-            </button>
-            {daftarKategoriProduk.map(k => (
-              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
-                <span>{k}</span>{selectedKategoriFilter === k && <Check size={13} />}
-              </button>
-            ))}
+            <div className="flex gap-2 w-full">
+              <button onClick={() => setIsScannerOpen(false)} className="flex-1 py-2.5 border border-[#E9EBED] rounded-xl font-bold cursor-pointer">Batal</button>
+              <button onClick={handleSimulateScan} className="flex-1 py-2.5 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer">Simulasi Scan</button>
+            </div>
           </div>
         </div>
       )}
@@ -638,6 +685,7 @@ export default function OwnerProduk() {
                 <label className="font-bold text-[#181b2b]">Nama Menu Produk</label>
                 <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" required />
               </div>
+              
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">Kategori</label>
@@ -645,11 +693,24 @@ export default function OwnerProduk() {
                     {daftarKategoriProduk.map(kat => (<option key={kat} value={kat}>{kat}</option>))}
                   </select>
                 </div>
+                
+                {/* SKU / Barcode dengan Tombol Scanner Kamera */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">SKU / Barcode</label>
-                  <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none" />
+                  <div className="flex gap-1">
+                    <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none text-[11px]" />
+                    <button 
+                      type="button" 
+                      onClick={() => setIsScannerOpen(true)}
+                      className="bg-[#01a684] text-white px-2.5 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-90"
+                      title="Scan Barcode / Kamera"
+                    >
+                      <ScanBarcode size={15} />
+                    </button>
+                  </div>
                 </div>
               </div>
+
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#181b2b]">Sumber Pengurangan Stok</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -657,32 +718,43 @@ export default function OwnerProduk() {
                   <button type="button" onClick={() => setFormTipeStok('manual')} className={`py-2 rounded-xl font-bold text-[11px] border cursor-pointer ${formTipeStok === 'manual' ? 'bg-[#01a684] text-white border-[#01a684]' : 'bg-white text-[#86899B] border-[#E9EBED]'}`}>Stok Manual</button>
                 </div>
               </div>
+
+              {/* RESEP BAHAN BAKU DENGAN SATUAN OTOMATIS MENGIKUTI GUDANG */}
               {formTipeStok === 'bahan' && (
                 <div className="flex flex-col gap-2 bg-[#F1F2F6] p-3 rounded-2xl border border-[#E9EBED]">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-[#181b2b]">Pilih Bahan dari Gudang</span>
                     <button type="button" onClick={() => setSelectedResep([...selectedResep, { bahanId: '', qty: '' }])} className="text-[#01a684] font-bold cursor-pointer">+ Bahan</button>
                   </div>
-                  {selectedResep.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select value={item.bahanId} onChange={(e) => {
-                        const updated = [...selectedResep];
-                        updated[idx].bahanId = e.target.value;
-                        setSelectedResep(updated);
-                      }} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
-                        <option value="">Pilih Bahan...</option>
-                        {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
-                      </select>
-                      <input type="number" step="0.01" value={item.qty} onChange={(e) => {
-                        const updated = [...selectedResep];
-                        updated[idx].qty = e.target.value;
-                        setSelectedResep(updated);
-                      }} placeholder="Qty" className="w-16 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] text-center font-bold outline-none" required />
-                      {selectedResep.length > 1 && (<button type="button" onClick={() => setSelectedResep(selectedResep.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
-                    </div>
-                  ))}
+                  {selectedResep.map((item, idx) => {
+                    const selectedBahan = masterBahan.find(mb => mb.id === item.bahanId);
+                    const satuanBahan = selectedBahan ? selectedBahan.satuan : 'qty';
+
+                    return (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select value={item.bahanId} onChange={(e) => {
+                          const updated = [...selectedResep];
+                          updated[idx].bahanId = e.target.value;
+                          setSelectedResep(updated);
+                        }} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
+                          <option value="">Pilih Bahan...</option>
+                          {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
+                        </select>
+                        <div className="flex items-center bg-white rounded-xl border border-[#E9EBED] px-2 py-1 w-28">
+                          <input type="number" step="any" value={item.qty} onChange={(e) => {
+                            const updated = [...selectedResep];
+                            updated[idx].qty = e.target.value;
+                            setSelectedResep(updated);
+                          }} placeholder="0" className="w-14 text-[11px] font-bold outline-none bg-transparent text-center" required />
+                          <span className="text-[10px] text-slate-400 uppercase font-bold shrink-0">{satuanBahan}</span>
+                        </div>
+                        {selectedResep.length > 1 && (<button type="button" onClick={() => setSelectedResep(selectedResep.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+
               {formTipeStok === 'manual' && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
@@ -695,6 +767,7 @@ export default function OwnerProduk() {
                   </div>
                 </div>
               )}
+
               {!formPakaiVarian && (
                 <div className="grid grid-cols-2 gap-2 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
                   <div className="flex flex-col gap-1">
@@ -707,50 +780,99 @@ export default function OwnerProduk() {
                   </div>
                 </div>
               )}
+
               <div className="pt-1 border-t border-[#E9EBED]">
                 <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-2xl border border-[#E9EBED] cursor-pointer">
                   <input type="checkbox" checked={formPakaiVarian} onChange={(e) => setFormPakaiVarian(e.target.checked)} className="w-4 h-4 accent-[#01a684] rounded cursor-pointer" />
                   <div>
                     <span className="font-bold text-[#181b2b] block">Produk Ini Memiliki Varian</span>
-                    <span className="text-[9px] text-slate-400">Atur HPP dan Harga Jual spesifik per varian ukuran/rasa</span>
+                    <span className="text-[9px] text-slate-400">Atur HPP, Harga Jual, serta Resep Bahan spesifik per varian</span>
                   </div>
                 </label>
               </div>
+
+              {/* OPSI VARIAN DENGAN BAHAN BAKU & QTY SPESIFIK PER VARIAN */}
               {formPakaiVarian && (
-                <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-2.5">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-3">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-[#01a684] uppercase text-[10px]">Daftar Varian & Harga:</span>
-                    <button type="button" onClick={() => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '' }])} className="text-[#01a684] font-bold cursor-pointer text-[11px]">+ Varian</button>
+                    <span className="font-bold text-[#01a684] uppercase text-[10px]">Daftar Varian & Resep Spesifik:</span>
+                    <button type="button" onClick={() => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }])} className="text-[#01a684] font-bold cursor-pointer text-[11px]">+ Varian</button>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    {formVarianList.map((v, idx) => (
-                      <div key={v.id || idx} className="bg-white border border-[#E9EBED] p-2.5 rounded-xl flex flex-col gap-2">
+
+                  <div className="flex flex-col gap-2.5">
+                    {formVarianList.map((v, vIdx) => (
+                      <div key={v.id || vIdx} className="bg-white border border-[#E9EBED] p-3 rounded-2xl flex flex-col gap-2.5 shadow-xs">
                         <div className="flex gap-2 items-center">
                           <input type="text" value={v.nama} onChange={(e) => {
                             const updated = [...formVarianList];
-                            updated[idx].nama = e.target.value;
+                            updated[vIdx].nama = e.target.value;
                             setFormVarianList(updated);
-                          }} placeholder="Nama Varian" className="flex-1 bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold outline-none" required />
-                          {formVarianList.length > 1 && (<button type="button" onClick={() => setFormVarianList(formVarianList.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                          }} placeholder="Nama Varian (Cth: Large / Dingin)" className="flex-1 bg-[#F1F2F6] rounded-xl px-3 py-2 text-xs font-bold outline-none" required />
+                          {formVarianList.length > 1 && (<button type="button" onClick={() => setFormVarianList(formVarianList.filter((_, i) => i !== vIdx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
                         </div>
+
                         <div className="grid grid-cols-2 gap-2">
                           <input type="text" value={v.hpp} onChange={(e) => {
                             const updated = [...formVarianList];
-                            updated[idx].hpp = formatRupiah(e.target.value);
+                            updated[vIdx].hpp = formatRupiah(e.target.value);
                             setFormVarianList(updated);
-                          }} placeholder="HPP (Modal)" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-medium outline-none" />
+                          }} placeholder="HPP (Modal)" className="bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-medium outline-none" />
                           <input type="text" value={v.hargaJual} onChange={(e) => {
                             const updated = [...formVarianList];
-                            updated[idx].hargaJual = formatRupiah(e.target.value);
-                            setFormTersedia={setFormVarianList}
+                            updated[vIdx].hargaJual = formatRupiah(e.target.value);
                             setFormVarianList(updated);
-                          }} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-bold text-[#01a684] outline-none" required />
+                          }} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold text-[#01a684] outline-none" required />
                         </div>
+
+                        {/* Komposisi Resep Bahan untuk Varian Ini */}
+                        <div className="bg-[#F1F2F6]/60 p-2.5 rounded-xl border border-slate-200 flex flex-col gap-2">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-slate-700">Komposisi Bahan Varian Ini:</span>
+                            <button type="button" onClick={() => {
+                              const updated = [...formVarianList];
+                              updated[vIdx].resepVarian.push({ bahanId: '', qty: '' });
+                              setFormVarianList(updated);
+                            }} className="text-[#01a684] font-bold">+ Bahan</button>
+                          </div>
+
+                          {(v.resepVarian || []).map((rv, rvIdx) => {
+                            const selectedBahanV = masterBahan.find(mb => mb.id === rv.bahanId);
+                            const satuanBahanV = selectedBahanV ? selectedBahanV.satuan : 'qty';
+
+                            return (
+                              <div key={rvIdx} className="flex gap-2 items-center">
+                                <select value={rv.bahanId} onChange={(e) => {
+                                  const updated = [...formVarianList];
+                                  updated[vIdx].resepVarian[rvIdx].bahanId = e.target.value;
+                                  setFormVarianList(updated);
+                                }} className="flex-1 bg-white rounded-xl p-1.5 text-[10px] border border-[#E9EBED] outline-none" required>
+                                  <option value="">Pilih Bahan...</option>
+                                  {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
+                                </select>
+                                <div className="flex items-center bg-white rounded-xl border border-[#E9EBED] px-2 py-0.5 w-24">
+                                  <input type="number" step="any" value={rv.qty} onChange={(e) => {
+                                    const updated = [...formVarianList];
+                                    updated[vIdx].resepVarian[rvIdx].qty = e.target.value;
+                                    setFormVarianList(updated);
+                                  }} placeholder="0" className="w-12 text-[10px] font-bold outline-none bg-transparent text-center" required />
+                                  <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">{satuanBahanV}</span>
+                                </div>
+                                {v.resepVarian.length > 1 && (<button type="button" onClick={() => {
+                                  const updated = [...formVarianList];
+                                  updated[vIdx].resepVarian = updated[vIdx].resepVarian.filter((_, i) => i !== rvIdx);
+                                  setFormVarianList(updated);
+                                }} className="text-red-400 p-0.5"><Trash2 size={12} /></button>)}
+                              </div>
+                            );
+                          })}
+                        </div>
+
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
               <div className="flex gap-2 mt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer">Batal</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Simpan Menu')}</button>
