@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Search, SlidersHorizontal, Plus, Package, 
-  Box, MoreVertical, X, Check, Trash2, Edit3, Tag, Store, Settings2, AlertTriangle, CheckCircle2 
+  Box, MoreVertical, X, Check, Trash2, Edit3, Tag, Store, Settings2, AlertTriangle, CheckCircle2, Settings 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
@@ -258,6 +258,7 @@ export default function OwnerBahan() {
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 lg:pb-12 font-sans antialiased relative">
       
+      {/* HEADER BERSIH (TOMBOL KANAN DIHILANGKAN, DIPINDAH KE POP-UP FILTER) */}
       <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-4 lg:px-10 pt-[env(safe-area-inset-top)]">
         <div className="h-14 lg:h-16 flex items-center justify-between relative max-w-md lg:max-w-7xl mx-auto">
           <button 
@@ -271,13 +272,7 @@ export default function OwnerBahan() {
             Inventaris Bahan Baku
           </h1>
 
-          <button 
-            onClick={() => setIsKategoriModalOpen(true)} 
-            className="w-9 h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0"
-            title="Kelola Kategori"
-          >
-            <Store size={18} />
-          </button>
+          <div className="w-9 h-9" /> {/* Spacer penyeimbang */}
         </div>
       </header>
 
@@ -467,6 +462,31 @@ export default function OwnerBahan() {
         </div>
       )}
 
+      {/* POP-UP FILTER KATEGORI DENGAN TOMBOL GEAR KELOLA KATEGORI DI DALAMNYA */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
+              <button 
+                onClick={() => { setIsFilterModalOpen(false); setIsKategoriModalOpen(true); }}
+                className="flex items-center gap-1.5 text-[#01a684] hover:bg-emerald-50 px-2.5 py-1.5 rounded-xl font-bold cursor-pointer transition-colors border-0 bg-transparent"
+                title="Kelola & Tambah Kategori"
+              >
+                <Settings size={15} />
+                <span>Kelola Kategori</span>
+              </button>
+            </div>
+
+            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className="py-3 px-4 bg-[#F1F2F6] rounded-xl font-bold text-left cursor-pointer text-[#181b2b]">Semua Kategori</button>
+            {daftarKategori.map(k => (
+              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className="py-3 px-4 bg-[#F1F2F6] rounded-xl font-bold text-left cursor-pointer text-[#181b2b]">{k}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Kategori (Terbuka dari tombol gear di pop-up filter) */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
@@ -484,18 +504,6 @@ export default function OwnerBahan() {
               ))}
             </div>
             <button onClick={() => setIsKategoriModalOpen(false)} className="w-full py-3 bg-[#181b2b] text-white rounded-xl font-bold mt-1 cursor-pointer border-0">Selesai</button>
-          </div>
-        </div>
-      )}
-
-      {isFilterModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-2 text-xs border border-[#E9EBED]">
-            <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b] mb-1">Filter Kategori</h3>
-            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className="py-3 px-4 bg-[#F1F2F6] rounded-xl font-bold text-left cursor-pointer text-[#181b2b]">Semua Kategori</button>
-            {daftarKategori.map(k => (
-              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className="py-3 px-4 bg-[#F1F2F6] rounded-xl font-bold text-left cursor-pointer text-[#181b2b]">{k}</button>
-            ))}
           </div>
         </div>
       )}
