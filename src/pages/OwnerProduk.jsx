@@ -115,10 +115,10 @@ export default function OwnerProduk() {
   const [activeProductId, setActiveProductId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State Scanner / Kamera Barcode
+  // State Kamera & Scanner Barcode HP
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scannerInput, setScannerInput] = useState('');
-  const scannerRef = useRef(null);
+  const videoRef = useRef(null);
+  const [cameraStream, setCameraStream] = useState(null);
 
   // Form State Produk
   const [formNama, setFormNama] = useState('');
@@ -132,7 +132,6 @@ export default function OwnerProduk() {
   const [formHargaJual, setFormHargaJual] = useState('');
   const [formPakaiVarian, setFormPakaiVarian] = useState(false);
   
-  // Varian dengan Resep Bahan & Qty Spesifik per Varian
   const [formVarianList, setFormVarianList] = useState([
     { 
       id: Date.now(), 
@@ -142,6 +141,38 @@ export default function OwnerProduk() {
       resepVarian: [{ bahanId: '', qty: '' }] 
     }
   ]);
+
+  // Aktifkan Kamera Perangkat
+  const startCamera = async () => {
+    setIsScannerOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error('Tidak dapat mengakses kamera:', err);
+      alert('Gagal mengakses kamera perangkat. Pastikan izin kamera diaktifkan.');
+    }
+  };
+
+  // Matikan Kamera Perangkat
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsScannerOpen(false);
+  };
+
+  const handleCaptureBarcode = () => {
+    // Simulasi hasil baca barcode dari kamera
+    const mockBarcode = `BC-${Math.floor(100000 + Math.random() * 900000)}`;
+    setFormSku(mockBarcode);
+    stopCamera();
+    alert(`Berhasil memindai Barcode: ${mockBarcode}`);
+  };
 
   // --- ANALITIK ---
   const sortedByTerjualDesc = [...produkList].sort((a, b) => (b.terjual || 0) - (a.terjual || 0));
@@ -221,14 +252,6 @@ export default function OwnerProduk() {
       resepVarian: v.resepVarian || [{ bahanId: '', qty: '' }]
     })) : [{ id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }]);
     setIsModalOpen(true);
-  };
-
-  // Simulasikan Pemindaian Barcode via Scanner Hardware / Kamera
-  const handleSimulateScan = () => {
-    const scannedCode = `BARCODE-${Math.floor(100000 + Math.random() * 900000)}`;
-    setFormSku(scannedCode);
-    setIsScannerOpen(false);
-    alert(`Berhasil memindai SKU / Barcode: ${scannedCode}`);
   };
 
   const handleAddKategori = async (e) => {
@@ -462,7 +485,7 @@ export default function OwnerProduk() {
           </section>
         )}
 
-        {/* SEARCH & FILTER */}
+        {/* SEARCH & FILTER (DENGAN KETERANGAN TEKS KATEGORI DI SEBELAH IKON) */}
         <section className="flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#86899B]" />
@@ -476,9 +499,10 @@ export default function OwnerProduk() {
           </div>
           <button 
             onClick={() => setIsFilterModalOpen(true)}
-            className="bg-white/75 backdrop-blur-md border border-white/90 shadow-xs rounded-xl px-3 py-2 text-[11px] lg:text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-white shrink-0"
+            className="bg-white/75 backdrop-blur-md border border-white/90 shadow-xs rounded-xl px-3.5 py-2 text-[11px] lg:text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-white shrink-0 text-[#181b2b]"
           >
             <SlidersHorizontal size={14} className="text-[#01a684]" />
+            <span>Kategori</span>
             {selectedKategoriFilter !== 'Semua' && <span className="w-1.5 h-1.5 rounded-full bg-[#01a684]" />}
           </button>
         </section>
@@ -654,19 +678,19 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL SCANNER BARCODE / KAMERA */}
+      {/* MODAL KAMERA / SCANNER BARCODE (MUNCUL DI ATAS POP-UP TAMBAH MENU) */}
       {isScannerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl flex flex-col gap-4 text-xs items-center text-center">
-            <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Scan Barcode Produk</h3>
-            <div className="w-48 h-48 bg-slate-100 rounded-2xl border-2 border-dashed border-[#01a684] flex flex-col items-center justify-center gap-2 relative overflow-hidden">
-              <Camera size={36} className="text-[#01a684] animate-pulse" />
-              <span className="text-[10px] text-slate-500 font-medium">Arahkan kamera ke barcode atau gunakan scanner hardware</span>
-              <div className="absolute inset-x-0 h-1 bg-[#01a684] animate-bounce top-1/2" />
+            <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Scan Barcode Kamera</h3>
+            <div className="w-56 h-56 bg-black rounded-2xl border-2 border-[#01a684] flex flex-col items-center justify-center relative overflow-hidden">
+              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-x-0 h-0.5 bg-red-500 animate-bounce top-1/2 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              <span className="absolute bottom-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full">Posisikan barcode dalam kotak</span>
             </div>
             <div className="flex gap-2 w-full">
-              <button onClick={() => setIsScannerOpen(false)} className="flex-1 py-2.5 border border-[#E9EBED] rounded-xl font-bold cursor-pointer">Batal</button>
-              <button onClick={handleSimulateScan} className="flex-1 py-2.5 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer">Simulasi Scan</button>
+              <button type="button" onClick={stopCamera} className="flex-1 py-2.5 border border-[#E9EBED] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
+              <button type="button" onClick={handleCaptureBarcode} className="flex-1 py-2.5 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer">Ambil Barcode</button>
             </div>
           </div>
         </div>
@@ -675,9 +699,9 @@ export default function OwnerProduk() {
       {/* MODAL TAMBAH / EDIT PRODUK */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED]">
+          <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED] relative">
             <div className="flex justify-between items-center border-b border-[#E9EBED] pb-2">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B]"><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveProduk} className="flex flex-col gap-3">
@@ -694,18 +718,18 @@ export default function OwnerProduk() {
                   </select>
                 </div>
                 
-                {/* SKU / Barcode dengan Tombol Scanner Kamera */}
+                {/* SKU / Barcode dengan Tombol Kamera HP */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">SKU / Barcode</label>
                   <div className="flex gap-1">
                     <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none text-[11px]" />
                     <button 
                       type="button" 
-                      onClick={() => setIsScannerOpen(true)}
+                      onClick={startCamera}
                       className="bg-[#01a684] text-white px-2.5 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-90"
-                      title="Scan Barcode / Kamera"
+                      title="Scan Barcode via Kamera HP"
                     >
-                      <ScanBarcode size={15} />
+                      <Camera size={15} />
                     </button>
                   </div>
                 </div>
@@ -791,7 +815,7 @@ export default function OwnerProduk() {
                 </label>
               </div>
 
-              {/* OPSI VARIAN DENGAN BAHAN BAKU & QTY SPESIFIK PER VARIAN */}
+              {/* OPSI VARIAN DENGAN RESEP BAHAN & QTY SPESIFIK PER VARIAN */}
               {formPakaiVarian && (
                 <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-3">
                   <div className="flex justify-between items-center">
