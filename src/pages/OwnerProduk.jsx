@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Search, Plus, AlertTriangle, 
   X, Check, Trash2, Coffee, Edit3, Store, SlidersHorizontal, Settings, Layers, Package,
-  TrendingUp, TrendingDown, ShoppingBag, BarChart3, RefreshCw, AlertCircle
+  TrendingUp, TrendingDown, ShoppingBag, RefreshCw, AlertCircle
 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
 const formatRupiah = (val) => {
@@ -26,227 +27,90 @@ const parseRupiah = (str) => {
   return parseInt(str.toString().replace(/\./g, ''), 10) || 0;
 };
 
-const DEFAULT_10_PRODUK = [
-  {
-    id: 1,
-    nama: 'Caffe Latte Signature',
-    kategori: 'Minuman',
-    sku: 'SKU-LAT-001',
-    tipeStok: 'bahan',
-    stokManual: 0,
-    stokMin: 5,
-    hpp: 12000,
-    hargaJual: 22000,
-    terjual: 450,
-    pakaiVarian: true,
-    varian: [
-      { id: 101, nama: 'Regular (Hot)', hpp: 8500, hargaJual: 22000 },
-      { id: 102, nama: 'Large (Ice)', hpp: 11000, hargaJual: 28000 },
-    ],
-    resep: [
-      { bahanId: 1, nama: 'Biji Kopi Arabika', qty: 0.02 },
-      { bahanId: 2, nama: 'Susu Full Cream', qty: 0.15 },
-    ],
-  },
-  {
-    id: 2,
-    nama: 'Americano Ice',
-    kategori: 'Minuman',
-    sku: 'SKU-AME-002',
-    tipeStok: 'manual',
-    stokManual: 50,
-    stokMin: 10,
-    hpp: 5000,
-    hargaJual: 15000,
-    terjual: 520,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 3,
-    nama: 'Matcha Green Tea Latte',
-    kategori: 'Minuman',
-    sku: 'SKU-MAT-003',
-    tipeStok: 'manual',
-    stokManual: 35,
-    stokMin: 10,
-    hpp: 11000,
-    hargaJual: 25000,
-    terjual: 380,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 4,
-    nama: 'Roti Bakar Coklat Keju',
-    kategori: 'Makanan',
-    sku: 'SKU-ROT-004',
-    tipeStok: 'manual',
-    stokManual: 2, // Menipis
-    stokMin: 5,
-    hpp: 7000,
-    hargaJual: 18000,
-    terjual: 215,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 5,
-    nama: 'Nasi Goreng Spesial',
-    kategori: 'Makanan',
-    sku: 'SKU-NAS-005',
-    tipeStok: 'manual',
-    stokManual: 25,
-    stokMin: 5,
-    hpp: 12000,
-    hargaJual: 28000,
-    terjual: 310,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 6,
-    nama: 'Mie Goreng Telur',
-    kategori: 'Makanan',
-    sku: 'SKU-MIE-006',
-    tipeStok: 'manual',
-    stokManual: 3, // Menipis
-    stokMin: 5,
-    hpp: 8000,
-    hargaJual: 18000,
-    terjual: 190,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 7,
-    nama: 'French Fries',
-    kategori: 'Snack & Dessert',
-    sku: 'SKU-FRF-007',
-    tipeStok: 'manual',
-    stokManual: 15,
-    stokMin: 5,
-    hpp: 6000,
-    hargaJual: 15000,
-    terjual: 45,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 8,
-    nama: 'Pisang Goreng Keju',
-    kategori: 'Snack & Dessert',
-    sku: 'SKU-PSG-008',
-    tipeStok: 'manual',
-    stokManual: 8,
-    stokMin: 5,
-    hpp: 5000,
-    hargaJual: 12000,
-    terjual: 15,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 9,
-    nama: 'Es Teh Manis',
-    kategori: 'Minuman',
-    sku: 'SKU-TEH-009',
-    tipeStok: 'manual',
-    stokManual: 100,
-    stokMin: 20,
-    hpp: 1500,
-    hargaJual: 5000,
-    terjual: 600,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-  {
-    id: 10,
-    nama: 'Air Mineral Botol 600ml',
-    kategori: 'Barang Retail',
-    sku: 'SKU-AIR-010',
-    tipeStok: 'manual',
-    stokManual: 2, // Menipis
-    stokMin: 10,
-    hpp: 3000,
-    hargaJual: 6000,
-    terjual: 8,
-    pakaiVarian: false,
-    varian: [],
-    resep: [],
-  },
-];
-
 export default function OwnerProduk() {
   const navigate = useNavigate();
 
-  const [masterBahan, setMasterBahan] = useState(() => {
-    const saved = localStorage.getItem('pos_master_bahan');
-    if (saved) return JSON.parse(saved);
-    return [];
-  });
+  const [masterBahan, setMasterBahan] = useState([]);
+  const [daftarKategoriProduk, setDaftarKategoriProduk] = useState(['Minuman', 'Makanan', 'Snack & Dessert', 'Barang Retail']);
+  const [produkList, setProdukList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const getOwnerId = () => {
+    return localStorage.getItem('owner_id') || 'toko_123';
+  };
+
+  // Ambil bahan dari Supabase untuk resep
+  const fetchMasterBahan = async () => {
+    try {
+      const currentOwnerId = getOwnerId();
+      const { data } = await supabase.from('ingredients').select('*').eq('owner_id', currentOwnerId);
+      if (data) {
+        setMasterBahan(data.map(item => ({ id: item.id, nama: item.nama, stok: Number(item.stok), satuan: item.satuan })));
+      }
+    } catch (err) {
+      console.error('Gagal mengambil bahan:', err.message);
+    }
+  };
+
+  // Ambil kategori produk dari Supabase
+  const fetchKategoriProduk = async () => {
+    try {
+      const currentOwnerId = getOwnerId();
+      const { data } = await supabase.from('product_categories').select('*').eq('owner_id', currentOwnerId);
+      if (data && data.length > 0) {
+        setDaftarKategoriProduk(data.map(item => item.nama_kategori));
+      }
+    } catch (err) {
+      console.error('Gagal mengambil kategori:', err.message);
+    }
+  };
+
+  // Ambil data produk dari Supabase
+  const fetchProduk = async () => {
+    setLoading(true);
+    try {
+      const currentOwnerId = getOwnerId();
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('owner_id', currentOwnerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        setProdukList(data.map(item => ({
+          id: item.id,
+          nama: item.nama,
+          kategori: item.kategori,
+          sku: item.sku || '-',
+          tipeStok: item.tipe_stok || 'bahan',
+          stokManual: Number(item.stok_manual || 0),
+          stokMin: Number(item.stok_min || 5),
+          hpp: Number(item.hpp || 0),
+          hargaJual: Number(item.harga_jual || 0),
+          terjual: Number(item.terjual || 0),
+          pakaiVarian: Boolean(item.pakai_varian),
+          varian: item.varian || [],
+          resep: item.resep || []
+        })));
+      }
+    } catch (err) {
+      console.error('Gagal memuat produk:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const handleStorage = () => {
-      const saved = localStorage.getItem('pos_master_bahan');
-      if (saved) setMasterBahan(JSON.parse(saved));
-    };
-    window.addEventListener('storage', handleStorage);
-    const interval = setInterval(handleStorage, 1000);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
-    };
+    fetchMasterBahan();
+    fetchKategoriProduk();
+    fetchProduk();
   }, []);
-
-  const [daftarKategoriProduk, setDaftarKategoriProduk] = useState(() => {
-    const saved = localStorage.getItem('pos_kategori_produk');
-    if (saved) return JSON.parse(saved);
-    return ['Minuman', 'Makanan', 'Snack & Dessert', 'Barang Retail'];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('pos_kategori_produk', JSON.stringify(daftarKategoriProduk));
-  }, [daftarKategoriProduk]);
 
   const [isKategoriModalOpen, setIsKategoriModalOpen] = useState(false);
   const [formKategoriBaru, setFormKategoriBaru] = useState('');
   const [editingKategoriIndex, setEditingKategoriIndex] = useState(null);
   const [editingKategoriText, setEditingKategoriText] = useState('');
-
-  const [produkList, setProdukList] = useState(() => {
-    const saved = localStorage.getItem('pos_produk_list');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 5) {
-          return parsed.map(p => ({ ...p, terjual: p.terjual !== undefined ? p.terjual : Math.floor(Math.random() * 50) }));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return DEFAULT_10_PRODUK;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('pos_produk_list', JSON.stringify(produkList));
-  }, [produkList]);
-
-  const handleResetDefault10 = () => {
-    if (window.confirm('Muat ulang 10 produk sampel bawaan?')) {
-      setProdukList(DEFAULT_10_PRODUK);
-      localStorage.setItem('pos_produk_list', JSON.stringify(DEFAULT_10_PRODUK));
-    }
-  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKategoriFilter, setSelectedKategoriFilter] = useState('Semua');
@@ -254,6 +118,7 @@ export default function OwnerProduk() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeProductId, setActiveProductId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form State Produk
   const [formNama, setFormNama] = useState('');
@@ -268,7 +133,7 @@ export default function OwnerProduk() {
   const [formPakaiVarian, setFormPakaiVarian] = useState(false);
   const [formVarianList, setFormVarianList] = useState([{ id: Date.now(), nama: '', hpp: '', hargaJual: '' }]);
 
-  // --- LOGIK RANKING & STOK MENIPIS ---
+  // --- LOGIK ANALITIK ---
   const sortedByTerjualDesc = [...produkList].sort((a, b) => (b.terjual || 0) - (a.terjual || 0));
   const top5Terlaris = sortedByTerjualDesc.slice(0, 5);
   const maxTerlarisQty = top5Terlaris.length > 0 ? (top5Terlaris[0].terjual || 1) : 1;
@@ -296,15 +161,16 @@ export default function OwnerProduk() {
     const status = evaluasiStatusProduk(p);
     return status.isHabis || status.isMin;
   });
-  // ------------------------------------
 
-  const handleSimulasiPenjualan = (id) => {
-    setProdukList(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, terjual: (p.terjual || 0) + 1 };
-      }
-      return p;
-    }));
+  const handleSimulasiPenjualan = async (id, currentTerjual) => {
+    try {
+      const newTerjual = (currentTerjual || 0) + 1;
+      const { error } = await supabase.from('products').update({ terjual: newTerjual }).eq('id', id);
+      if (error) throw error;
+      setProdukList(prev => prev.map(p => p.id === id ? { ...p, terjual: newTerjual } : p));
+    } catch (err) {
+      console.error('Gagal simulasi penjualan:', err.message);
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -341,128 +207,109 @@ export default function OwnerProduk() {
     setIsModalOpen(true);
   };
 
-  const handleAddKategori = (e) => {
+  const handleAddKategori = async (e) => {
     e.preventDefault();
     if (!formKategoriBaru.trim()) return;
     if (daftarKategoriProduk.includes(formKategoriBaru)) {
       alert('Kategori sudah ada!');
       return;
     }
-    setDaftarKategoriProduk([...daftarKategoriProduk, formKategoriBaru]);
-    setFormKategoriBaru('');
+    try {
+      const currentOwnerId = getOwnerId();
+      const { error } = await supabase.from('product_categories').insert([{ owner_id: currentOwnerId, nama_kategori: formKategoriBaru.trim() }]);
+      if (error) throw error;
+      setDaftarKategoriProduk([...daftarKategoriProduk, formKategoriBaru.trim()]);
+      setFormKategoriBaru('');
+    } catch (err) {
+      console.error('Gagal tambah kategori:', err.message);
+    }
   };
 
-  const handleDeleteKategori = (katTarget) => {
+  const handleDeleteKategori = async (katTarget) => {
     if (daftarKategoriProduk.length <= 1) {
       alert('Minimal harus ada 1 kategori produk!');
       return;
     }
     if (window.confirm(`Hapus kategori "${katTarget}"?`)) {
-      setDaftarKategoriProduk(daftarKategoriProduk.filter(k => k !== katTarget));
-      if (selectedKategoriFilter === katTarget) setSelectedKategoriFilter('Semua');
-      if (formKategori === katTarget) setFormKategori(daftarKategoriProduk[0]);
+      try {
+        const currentOwnerId = getOwnerId();
+        const { error } = await supabase.from('product_categories').delete().eq('owner_id', currentOwnerId).eq('nama_kategori', katTarget);
+        if (error) throw error;
+        setDaftarKategoriProduk(daftarKategoriProduk.filter(k => k !== katTarget));
+        if (selectedKategoriFilter === katTarget) setSelectedKategoriFilter('Semua');
+        if (formKategori === katTarget) setFormKategori(daftarKategoriProduk[0]);
+      } catch (err) {
+        console.error('Gagal hapus kategori:', err.message);
+      }
     }
   };
 
-  const handleStartEditKategori = (index, kat) => {
-    setEditingKategoriIndex(index);
-    setEditingKategoriText(kat);
-  };
-
-  const handleSaveEditKategori = (oldKat) => {
-    if (!editingKategoriText.trim()) return;
-    const updated = daftarKategoriProduk.map(k => (k === oldKat ? editingKategoriText : k));
-    setDaftarKategoriProduk(updated);
-    setEditingKategoriIndex(null);
-    setEditingKategoriText('');
-  };
-
-  const handleAddResepRow = () => setSelectedResep([...selectedResep, { bahanId: '', qty: '' }]);
-  const handleResepChange = (i, field, val) => {
-    const updated = [...selectedResep];
-    updated[i][field] = val;
-    setSelectedResep(updated);
-  };
-  const handleRemoveResepRow = (i) => {
-    setSelectedResep(selectedResep.filter((_, idx) => idx !== i));
-  };
-
-  const handleAddVarianRow = () => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '' }]);
-  const handleVarianChange = (i, field, val) => {
-    const updated = [...formVarianList];
-    updated[i][field] = val;
-    setFormVarianList(updated);
-  };
-  const handleRemoveVarianRow = (i) => {
-    setFormVarianList(formVarianList.filter((_, idx) => idx !== i));
-  };
-
-  const handleSaveProduk = (e) => {
+  const handleSaveProduk = async (e) => {
     e.preventDefault();
     if (!formNama.trim()) return;
 
-    let formattedResep = [];
-    if (formTipeStok === 'bahan') {
-      formattedResep = selectedResep.filter(r => r.bahanId).map(r => {
-        const b = masterBahan.find(mb => mb.id === parseInt(r.bahanId));
-        return { bahanId: parseInt(r.bahanId), nama: b ? b.nama : 'Bahan', qty: parseFloat(r.qty) || 0 };
-      });
-    }
+    setIsSubmitting(true);
+    try {
+      const currentOwnerId = getOwnerId();
+      let formattedResep = [];
+      if (formTipeStok === 'bahan') {
+        formattedResep = selectedResep.filter(r => r.bahanId).map(r => {
+          const b = masterBahan.find(mb => mb.id === r.bahanId);
+          return { bahanId: r.bahanId, nama: b ? b.nama : 'Bahan', qty: parseFloat(r.qty) || 0 };
+        });
+      }
 
-    const processedVarian = formPakaiVarian ? formVarianList.map(v => ({
-      id: v.id || Date.now(),
-      nama: v.nama,
-      hpp: parseRupiah(v.hpp),
-      hargaJual: parseRupiah(v.hargaJual)
-    })) : [];
+      const processedVarian = formPakaiVarian ? formVarianList.map(v => ({
+        id: v.id || Date.now(),
+        nama: v.nama,
+        hpp: parseRupiah(v.hpp),
+        hargaJual: parseRupiah(v.hargaJual)
+      })) : [];
 
-    if (isEditMode) {
-      setProdukList(produkList.map(p => {
-        if (p.id === activeProductId) {
-          return {
-            ...p,
-            nama: formNama,
-            kategori: formKategori,
-            sku: formSku || p.sku,
-            tipeStok: formTipeStok,
-            stokManual: formTipeStok === 'manual' ? parseFloat(formStokManual) || 0 : 0,
-            stokMin: parseFloat(formStokMin) || 5,
-            hpp: !formPakaiVarian ? parseRupiah(formHpp) : 0,
-            hargaJual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
-            pakaiVarian: formPakaiVarian,
-            varian: processedVarian,
-            resep: formattedResep
-          };
-        }
-        return p;
-      }));
-      alert('Produk berhasil diperbarui!');
-    } else {
-      const newProduk = {
-        id: Date.now(),
+      const payload = {
+        owner_id: currentOwnerId,
         nama: formNama,
         kategori: formKategori,
         sku: formSku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        tipeStok: formTipeStok,
-        stokManual: formTipeStok === 'manual' ? parseFloat(formStokManual) || 0 : 0,
-        stokMin: parseFloat(formStokMin) || 5,
+        tipe_stok: formTipeStok,
+        stok_manual: formTipeStok === 'manual' ? parseFloat(formStokManual) || 0 : 0,
+        stok_min: parseFloat(formStokMin) || 5,
         hpp: !formPakaiVarian ? parseRupiah(formHpp) : 0,
-        hargaJual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
-        terjual: 0,
-        pakaiVarian: formPakaiVarian,
+        harga_jual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
+        pakai_varian: formPakaiVarian,
         varian: processedVarian,
         resep: formattedResep
       };
-      setProdukList([newProduk, ...produkList]);
-      alert('Menu produk baru berhasil ditambahkan!');
-    }
 
-    setIsModalOpen(false);
+      if (isEditMode) {
+        const { error } = await supabase.from('products').update(payload).eq('id', activeProductId);
+        if (error) throw error;
+        alert('Produk berhasil diperbarui!');
+      } else {
+        const { error } = await supabase.from('products').insert([payload]);
+        if (error) throw error;
+        alert('Menu produk baru berhasil ditambahkan!');
+      }
+
+      setIsModalOpen(false);
+      fetchProduk();
+    } catch (err) {
+      console.error('Gagal menyimpan produk:', err.message);
+      alert('Gagal menyimpan produk ke database: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteProduk = (id, nama) => {
+  const handleDeleteProduk = async (id, nama) => {
     if (window.confirm(`Hapus menu produk "${nama}" dari sistem?`)) {
-      setProdukList(produkList.filter(p => p.id !== id));
+      try {
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
+        setProdukList(produkList.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Gagal hapus produk:', err.message);
+      }
     }
   };
 
@@ -473,149 +320,121 @@ export default function OwnerProduk() {
   });
 
   return (
-    <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 font-sans antialiased relative">
+    <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-32 lg:pb-12 font-sans antialiased relative">
       
-      {/* HEADER PRESISI */}
-      <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-4 pt-[env(safe-area-inset-top)]">
-        <div className="h-14 flex items-center justify-between relative">
+      {/* HEADER COMPACT */}
+      <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-3 lg:px-10 pt-[env(safe-area-inset-top)]">
+        <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md lg:max-w-7xl mx-auto">
           <button 
             onClick={() => navigate(-1)} 
-            className="w-9 h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0"
+            className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
           
-          <h1 className="text-xs font-bold uppercase tracking-wider text-[#181b2b] absolute left-1/2 -translate-x-1/2 truncate max-w-[200px] text-center">
+          <h1 className="text-[11px] lg:text-sm font-bold uppercase tracking-wider text-[#181b2b] absolute left-1/2 -translate-x-1/2 truncate max-w-[200px] text-center">
             Produk & Resep
           </h1>
 
           <div className="flex items-center gap-1">
             <button 
-              onClick={handleResetDefault10}
-              className="w-9 h-9 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer shrink-0"
-              title="Reset 10 Produk Sampel"
-            >
-              <RefreshCw size={16} />
-            </button>
-            <button 
               onClick={() => setIsKategoriModalOpen(true)} 
-              className="w-9 h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0"
+              className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0"
               title="Kelola Kategori"
             >
-              <Store size={18} />
+              <Store size={16} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="p-4 max-w-md mx-auto flex flex-col gap-4">
+      {/* MAIN LAYOUT - COMPACT DI MOBILE, GRID DI TABLET/DESKTOP */}
+      <main className="p-3 lg:p-8 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
 
-        {/* HERO BANNER KOTAK PALING ATAS (MENGGABUNGKAN HERO + CHART TOP 5 & TOP 3) */}
-        <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#181b2b] text-white rounded-3xl p-5 shadow-lg relative overflow-hidden flex flex-col gap-4">
-          <div className="absolute -right-8 -bottom-10 pointer-events-none opacity-10 text-emerald-300 transform rotate-[-12deg]">
-            <svg viewBox="0 0 100 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-52 h-52">
-              <rect x="5" y="18" width="90" height="35" rx="5" stroke="currentColor" strokeWidth="5"/>
-              <path d="M5 58H95" stroke="currentColor" strokeWidth="6" strokeLinecap="round"/>
-              <rect x="58" y="2" width="22" height="13" rx="3" stroke="currentColor" strokeWidth="3.5"/>
-              <path d="M69 15V18" stroke="currentColor" strokeWidth="3.5"/>
-            </svg>
-          </div>
-
+        {/* HERO BANNER BERSIH TANPA WATERMARK */}
+        <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#181b2b] text-white rounded-2xl lg:rounded-3xl p-4 lg:p-8 shadow-md relative overflow-hidden flex flex-col gap-3">
           <div className="flex justify-between items-start relative z-10">
             <div>
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Coffee size={12} /> ANALITIK KATALOG & MENU
+              <span className="text-[9px] lg:text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Coffee size={11} /> ANALITIK KATALOG & MENU
               </span>
-              <h2 className="text-base font-black tracking-tight mt-0.5">Performa Produk Jualan</h2>
+              <h2 className="text-sm lg:text-2xl font-black tracking-tight mt-0.5">Performa Produk Jualan</h2>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-slate-200">
-              {produkList.length} Total Menu
-            </div>
-          </div>
-
-          {/* INTERNAL CHART: TOP 5 TERLARIS DI DALAM BANNER */}
-          <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 flex flex-col gap-2 relative z-10">
-            <div className="flex items-center justify-between pb-1 border-b border-white/10">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
-                <TrendingUp size={14} /> Top 5 Produk Terlaris
-              </div>
-              <span className="text-[9px] text-slate-300 uppercase">Porsi Terjual</span>
-            </div>
-            <div className="flex flex-col gap-2 pt-0.5">
-              {top5Terlaris.map((p, idx) => {
-                const qty = p.terjual || 0;
-                const percent = Math.round((qty / maxTerlarisQty) * 100);
-                return (
-                  <div key={p.id} className="flex flex-col gap-0.5">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-semibold text-slate-200 truncate max-w-[200px]">
-                        {idx + 1}. {p.nama}
-                      </span>
-                      <span className="font-black text-emerald-400 tabular-nums">{qty}</span>
-                    </div>
-                    <div className="w-full bg-black/30 h-2.5 rounded-full overflow-hidden p-0.5">
-                      <div className="bg-gradient-to-r from-emerald-500 to-teal-300 h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(percent, 10)}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg text-[9px] lg:text-xs font-bold text-slate-200">
+              {produkList.length} Menu
             </div>
           </div>
 
-          {/* INTERNAL CHART: TOP 3 KURANG MINAT DI DALAM BANNER */}
-          <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 flex flex-col gap-2 relative z-10">
-            <div className="flex items-center justify-between pb-1 border-b border-white/10">
-              <div className="flex items-center gap-1.5 text-rose-400 font-bold text-xs">
-                <TrendingDown size={14} /> Top 3 Kurang Minat
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {/* TOP 5 TERLARIS */}
+            <div className="bg-white/10 backdrop-blur-md p-2.5 lg:p-4 rounded-xl border border-white/10 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between pb-1 border-b border-white/10 text-[10px] lg:text-xs text-emerald-400 font-bold">
+                <span className="flex items-center gap-1"><TrendingUp size={13} /> Top 5 Terlaris</span>
+                <span>Porsi</span>
               </div>
-              <span className="text-[9px] text-slate-300 uppercase">Porsi Terjual</span>
+              <div className="flex flex-col gap-1.5">
+                {top5Terlaris.map((p, idx) => {
+                  const qty = p.terjual || 0;
+                  const percent = Math.round((qty / maxTerlarisQty) * 100);
+                  return (
+                    <div key={p.id} className="flex flex-col gap-0.5">
+                      <div className="flex justify-between items-center text-[10px] lg:text-xs">
+                        <span className="font-semibold text-slate-200 truncate max-w-[150px] lg:max-w-xs">{idx + 1}. {p.nama}</span>
+                        <span className="font-black text-emerald-400 tabular-nums">{qty}</span>
+                      </div>
+                      <div className="w-full bg-black/30 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${Math.max(percent, 10)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-col gap-2 pt-0.5">
-              {top3KurangMinat.map((p, idx) => {
-                const qty = p.terjual || 0;
-                const percent = Math.round((qty / (maxKurangMinatQty || 1)) * 100);
-                return (
-                  <div key={p.id} className="flex flex-col gap-0.5">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-semibold text-slate-200 truncate max-w-[200px]">
-                        {idx + 1}. {p.nama}
-                      </span>
-                      <span className="font-black text-rose-400 tabular-nums">{qty}</span>
+
+            {/* TOP 3 KURANG MINAT */}
+            <div className="bg-white/10 backdrop-blur-md p-2.5 lg:p-4 rounded-xl border border-white/10 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between pb-1 border-b border-white/10 text-[10px] lg:text-xs text-rose-400 font-bold">
+                <span className="flex items-center gap-1"><TrendingDown size={13} /> Top 3 Kurang Minat</span>
+                <span>Porsi</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {top3KurangMinat.map((p, idx) => {
+                  const qty = p.terjual || 0;
+                  const percent = Math.round((qty / (maxKurangMinatQty || 1)) * 100);
+                  return (
+                    <div key={p.id} className="flex flex-col gap-0.5">
+                      <div className="flex justify-between items-center text-[10px] lg:text-xs">
+                        <span className="font-semibold text-slate-200 truncate max-w-[150px] lg:max-w-xs">{idx + 1}. {p.nama}</span>
+                        <span className="font-black text-rose-400 tabular-nums">{qty}</span>
+                      </div>
+                      <div className="w-full bg-black/30 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-rose-400 h-full rounded-full" style={{ width: `${Math.max(percent, 12)}%` }} />
+                      </div>
                     </div>
-                    <div className="w-full bg-black/30 h-2.5 rounded-full overflow-hidden p-0.5">
-                      <div className="bg-gradient-to-r from-rose-500 to-amber-400 h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(percent, 12)}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* SECTION: ALERT STOK MENIPIS / HABIS */}
+        {/* ALERT STOK MENIPIS */}
         {daftarStokMenipis.length > 0 && (
-          <section className="bg-amber-50 border border-amber-200/80 rounded-3xl p-4 flex flex-col gap-2.5 shadow-sm">
-            <div className="flex items-center gap-2 text-amber-800">
-              <AlertCircle size={16} className="text-amber-600" />
-              <h3 className="font-bold text-xs uppercase tracking-wider">Perhatian: Produk Stok Menipis ({daftarStokMenipis.length})</h3>
+          <section className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex flex-col gap-2 shadow-xs">
+            <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-bold">
+              <AlertCircle size={14} className="text-amber-600" />
+              <span>Perhatian: Produk Stok Menipis ({daftarStokMenipis.length})</span>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               {daftarStokMenipis.map(p => {
                 const status = evaluasiStatusProduk(p);
                 return (
-                  <div key={p.id} className="bg-white px-3 py-2 rounded-2xl border border-amber-100 flex justify-between items-center text-xs">
+                  <div key={p.id} className="bg-white px-2.5 py-1.5 rounded-xl border border-amber-100 flex justify-between items-center text-[11px]">
                     <div>
-                      <span className="font-bold text-slate-800 block">{p.nama}</span>
-                      <span className="text-[10px] text-amber-600 font-medium">
-                        {status.penyebab} (Sisa: <strong>{p.stokManual}</strong>)
-                      </span>
+                      <span className="font-bold text-slate-800">{p.nama}</span>
+                      <span className="text-[9px] text-amber-600 block">{status.penyebab} (Sisa: {p.stokManual})</span>
                     </div>
-                    <button 
-                      onClick={() => handleOpenEditModal(p)}
-                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-[10px] transition-colors cursor-pointer"
-                    >
-                      Restock
-                    </button>
+                    <button onClick={() => handleOpenEditModal(p)} className="px-2 py-1 bg-amber-500 text-white rounded-lg font-bold text-[9px] cursor-pointer">Restock</button>
                   </div>
                 );
               })}
@@ -624,217 +443,194 @@ export default function OwnerProduk() {
         )}
 
         {/* SEARCH & FILTER */}
-        <section className="flex gap-2 mt-1">
+        <section className="flex gap-2">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86899B]" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#86899B]" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari menu produk atau SKU..." 
-              className="w-full bg-white/70 border border-white/90 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-medium text-[#181b2b] outline-none shadow-sm focus:bg-white"
+              className="w-full bg-white/75 border border-white/90 rounded-xl pl-9 pr-3 py-2 text-[11px] lg:text-xs font-medium outline-none shadow-xs focus:bg-white"
             />
           </div>
           <button 
             onClick={() => setIsFilterModalOpen(true)}
-            className="bg-white/70 backdrop-blur-md border border-white/90 shadow-sm rounded-2xl px-3.5 py-2.5 text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-white"
+            className="bg-white/75 backdrop-blur-md border border-white/90 shadow-xs rounded-xl px-3 py-2 text-[11px] lg:text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-white shrink-0"
           >
-            <SlidersHorizontal size={16} className="text-[#01a684]" />
-            {selectedKategoriFilter !== 'Semua' && <span className="w-2 h-2 rounded-full bg-[#01a684]" />}
+            <SlidersHorizontal size={14} className="text-[#01a684]" />
+            {selectedKategoriFilter !== 'Semua' && <span className="w-1.5 h-1.5 rounded-full bg-[#01a684]" />}
           </button>
         </section>
 
-        <button onClick={handleOpenAddModal} className="w-full bg-[#01a684] text-white rounded-2xl py-3.5 flex items-center justify-center gap-2 font-bold text-xs shadow-sm cursor-pointer hover:opacity-90 transition-all">
-          <Plus size={16} /> Tambah Menu & Resep Terintegrasi
+        <button onClick={handleOpenAddModal} className="w-full bg-[#01a684] text-white rounded-xl py-3 flex items-center justify-center gap-1.5 font-bold text-[11px] lg:text-xs shadow-xs cursor-pointer hover:opacity-90 transition-all">
+          <Plus size={15} /> Tambah Menu & Resep Terintegrasi
         </button>
 
-        {/* HEADER DAFTAR PRODUK */}
-        <div className="flex justify-between items-end mt-2">
-          <h2 className="font-bold text-xs uppercase text-[#181b2b] tracking-wider">Katalog Produk</h2>
-          <span className="text-[10px] text-[#86899B] font-bold">{filteredProduk.length} Item Ditampilkan</span>
+        {/* HEADER DAFTAR */}
+        <div className="flex justify-between items-end mt-1">
+          <h2 className="font-bold text-[11px] lg:text-xs uppercase text-[#181b2b] tracking-wider">Katalog Produk</h2>
+          <span className="text-[9px] lg:text-[10px] text-[#86899B] font-bold">{filteredProduk.length} Item</span>
         </div>
 
-        {/* DAFTAR KARTU PRODUK */}
-        <div className="flex flex-col gap-3">
-          {filteredProduk.map((produk) => {
-            const { isHabis, isMin, penyebab } = evaluasiStatusProduk(produk);
-            const margin = !produk.pakaiVarian && produk.hargaJual > 0 ? Math.round(((produk.hargaJual - (produk.hpp || 0)) / produk.hargaJual) * 100) : null;
+        {/* GRID KARTU PRODUK */}
+        {loading ? (
+          <p className="text-xs text-center text-[#86899B] py-8">Memuat katalog produk...</p>
+        ) : filteredProduk.length === 0 ? (
+          <div className="text-center text-xs text-[#86899B] py-8 bg-white/60 rounded-2xl border border-white/80">Belum ada produk terdaftar di Supabase.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-4">
+            {filteredProduk.map((produk) => {
+              const { isHabis, isMin, penyebab } = evaluasiStatusProduk(produk);
+              const margin = !produk.pakaiVarian && produk.hargaJual > 0 ? Math.round(((produk.hargaJual - (produk.hpp || 0)) / produk.hargaJual) * 100) : null;
 
-            return (
-              <div key={produk.id} className="bg-white rounded-3xl p-4 border border-[#E9EBED] shadow-sm flex flex-col gap-3 relative">
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${isHabis ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-[#01a684]'}`}>
-                      <Coffee size={18} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-[#181b2b]">{produk.nama}</h4>
-                        {isHabis && (
-                          <span className="bg-red-50 text-red-600 border border-red-200 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <AlertTriangle size={10} /> Habis
-                          </span>
-                        )}
+              return (
+                <div key={produk.id} className="bg-white rounded-2xl p-3 border border-[#E9EBED] shadow-xs flex flex-col gap-2.5 relative">
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isHabis ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-[#01a684]'}`}>
+                        <Coffee size={15} />
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-[#86899B] bg-slate-100 px-2 py-0.5 rounded-md font-medium">{produk.kategori}</span>
-                        <span className="text-[9px] font-mono text-slate-400">{produk.sku}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => handleSimulasiPenjualan(produk.id)}
-                      className="h-8 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#01a684] flex items-center gap-1 font-bold text-[10px] transition-colors cursor-pointer"
-                      title="Simulasi Penjualan (+1)"
-                    >
-                      <ShoppingBag size={13} /> +Terjual
-                    </button>
-                    <button 
-                      onClick={() => handleOpenEditModal(produk)}
-                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-[#01a684] flex items-center justify-center transition-colors cursor-pointer"
-                      title="Edit Produk"
-                    >
-                      <Settings size={15} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteProduk(produk.id, produk.nama)}
-                      className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors cursor-pointer"
-                      title="Hapus Produk"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {isHabis && penyebab && (
-                  <div className="bg-red-50 text-red-600 text-[10px] px-3 py-1.5 rounded-xl border border-red-200 font-medium flex items-center gap-1">
-                    <AlertTriangle size={12} /> Sebab Habis: <strong>{penyebab}</strong>
-                  </div>
-                )}
-
-                {!produk.pakaiVarian && (
-                  <div className="bg-[#F1F2F6]/80 p-3 rounded-2xl grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase">HPP (Modal)</span>
-                      <span className="font-bold text-slate-700">Rp {formatRupiah(produk.hpp || 0)}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga Jual</span>
-                      <span className="font-bold text-[#01a684]">Rp {formatRupiah(produk.hargaJual || 0)}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Est. Margin</span>
-                      <span className="font-bold text-indigo-600">{margin !== null ? `${margin}%` : '-'}</span>
-                    </div>
-                  </div>
-                )}
-
-                {produk.pakaiVarian && produk.varian && produk.varian.length > 0 && (
-                  <div className="bg-[#F1F2F6]/80 p-3 rounded-2xl flex flex-col gap-2">
-                    <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                      <Layers size={11} /> Varian & Harga Spesifik ({produk.varian.length}):
-                    </span>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {produk.varian.map((v, i) => (
-                        <div key={i} className="bg-white border border-[#E9EBED] px-3 py-2 rounded-xl flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-800">{v.nama}</span>
-                          <div className="flex gap-3 text-[11px]">
-                            <span className="text-slate-400">Modal: Rp {formatRupiah(v.hpp)}</span>
-                            <span className="font-bold text-[#01a684]">Jual: Rp {formatRupiah(v.hargaJual)}</span>
-                          </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="text-[11px] lg:text-xs font-bold text-[#181b2b] truncate">{produk.nama}</h4>
+                          {isHabis && (
+                            <span className="bg-red-50 text-red-600 text-[8px] font-bold px-1 py-0.2 rounded shrink-0">Habis</span>
+                          )}
                         </div>
-                      ))}
+                        <div className="flex items-center gap-1 mt-0.2">
+                          <span className="text-[9px] text-[#86899B] bg-slate-100 px-1.5 py-0.2 rounded font-medium">{produk.kategori}</span>
+                          <span className="text-[8px] font-mono text-slate-400">{produk.sku}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button 
+                        onClick={() => handleSimulasiPenjualan(produk.id, produk.terjual)}
+                        className="h-7 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#01a684] flex items-center gap-0.5 font-bold text-[9px] cursor-pointer"
+                        title="Simulasi Penjualan (+1)"
+                      >
+                        <ShoppingBag size={11} /> +Terjual
+                      </button>
+                      <button 
+                        onClick={() => handleOpenEditModal(produk)}
+                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-[#01a684] flex items-center justify-center cursor-pointer"
+                        title="Edit"
+                      >
+                        <Settings size={13} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteProduk(produk.id, produk.nama)}
+                        className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center cursor-pointer"
+                        title="Hapus"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   </div>
-                )}
 
-                <div className="flex justify-between items-center pt-1 border-t border-[#E9EBED]/50 text-[11px]">
-                  <div className="flex items-center gap-1 text-slate-500 font-medium">
-                    <Package size={13} className="text-slate-400" />
-                    {produk.tipeStok === 'bahan' ? (
-                      <span>Resep Bahan: <strong>{produk.resep.length} item terhubung</strong></span>
-                    ) : (
-                      <span>Stok Manual: <strong className={isMin ? 'text-red-600' : 'text-slate-800'}>{produk.stokManual} Unit</strong></span>
-                    )}
+                  {!produk.pakaiVarian && (
+                    <div className="bg-[#F1F2F6]/70 p-2 rounded-xl grid grid-cols-3 gap-1 text-[10px]">
+                      <div>
+                        <span className="text-[8px] font-bold text-slate-400 block uppercase">HPP</span>
+                        <span className="font-bold text-slate-700">Rp {formatRupiah(produk.hpp || 0)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-bold text-slate-400 block uppercase">Jual</span>
+                        <span className="font-bold text-[#01a684]">Rp {formatRupiah(produk.hargaJual || 0)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[8px] font-bold text-slate-400 block uppercase">Margin</span>
+                        <span className="font-bold text-indigo-600">{margin !== null ? `${margin}%` : '-'}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {produk.pakaiVarian && produk.varian && produk.varian.length > 0 && (
+                    <div className="bg-[#F1F2F6]/70 p-2 rounded-xl flex flex-col gap-1.5">
+                      <span className="text-[8px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                        <Layers size={10} /> Varian ({produk.varian.length}):
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        {produk.varian.map((v, i) => (
+                          <div key={i} className="bg-white border border-[#E9EBED] px-2 py-1 rounded-lg flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-slate-800">{v.nama}</span>
+                            <span className="font-bold text-[#01a684]">Rp {formatRupiah(v.hargaJual)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-1 border-t border-[#E9EBED]/50 text-[10px]">
+                    <span className="text-slate-500 font-medium">
+                      {produk.tipeStok === 'bahan' ? `Resep: ${produk.resep.length} bahan` : `Stok: ${produk.stokManual} unit`}
+                    </span>
+                    <span className="bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded text-[9px]">
+                      Terjual: {produk.terjual || 0}
+                    </span>
                   </div>
 
-                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">
-                    Total Terjual: {produk.terjual || 0}
-                  </span>
                 </div>
-
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
-      {/* MODAL KATEGORI */}
+      {/* MODAL KELOLA KATEGORI */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Kelola Kategori Produk</h3>
-              <button onClick={() => setIsKategoriModalOpen(false)} className="text-[#86899B] hover:text-[#181b2b]"><X size={18} /></button>
+              <button onClick={() => setIsKategoriModalOpen(false)} className="text-[#86899B]"><X size={16} /></button>
             </div>
             <form onSubmit={handleAddKategori} className="flex gap-2">
-              <input type="text" value={formKategoriBaru} onChange={(e) => setFormKategoriBaru(e.target.value)} placeholder="Nama kategori baru..." className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none focus:ring-2 focus:ring-[#01a684]" />
-              <button type="submit" className="bg-[#01a684] text-white px-3.5 py-2.5 rounded-xl font-bold cursor-pointer shadow-sm">Tambah</button>
+              <input type="text" value={formKategoriBaru} onChange={(e) => setFormKategoriBaru(e.target.value)} placeholder="Nama kategori baru..." className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none" />
+              <button type="submit" className="bg-[#01a684] text-white px-3.5 py-2.5 rounded-xl font-bold cursor-pointer">Tambah</button>
             </form>
-            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto mt-1 border-t border-[#E9EBED] pt-2">
+            <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
               {daftarKategoriProduk.map((kat, idx) => (
                 <div key={idx} className="bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold text-[#181b2b] flex justify-between items-center border border-[#E9EBED]">
-                  {editingKategoriIndex === idx ? (
-                    <div className="flex flex-1 gap-1 mr-2">
-                      <input type="text" value={editingKategoriText} onChange={(e) => setEditingKategoriText(e.target.value)} className="flex-1 bg-white border border-[#01a684] rounded-lg px-2 py-1 text-xs outline-none font-bold" />
-                      <button type="button" onClick={() => handleSaveEditKategori(kat)} className="text-[#01a684] font-bold px-1">Simpan</button>
-                    </div>
-                  ) : (
-                    <span className="truncate">{kat}</span>
-                  )}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {editingKategoriIndex !== idx && (
-                      <button onClick={() => handleStartEditKategori(idx, kat)} className="text-slate-400 hover:text-[#01a684] p-1 cursor-pointer"><Edit3 size={13} /></button>
-                    )}
-                    <button onClick={() => handleDeleteKategori(kat)} className="text-red-400 hover:text-red-600 p-1 cursor-pointer"><Trash2 size={13} /></button>
-                  </div>
+                  <span className="truncate">{kat}</span>
+                  <button onClick={() => handleDeleteKategori(kat)} className="text-red-400 hover:text-red-600 p-1 cursor-pointer"><Trash2 size={13} /></button>
                 </div>
               ))}
             </div>
-            <button onClick={() => setIsKategoriModalOpen(false)} className="w-full py-2.5 bg-[#181b2b] text-white rounded-xl font-bold mt-1 cursor-pointer">Selesai</button>
+            <button onClick={() => setIsKategoriModalOpen(false)} className="w-full py-2.5 bg-[#181b2b] text-white rounded-xl font-bold cursor-pointer">Selesai</button>
           </div>
         </div>
       )}
 
-      {/* MODAL FILTER */}
+      {/* MODAL FILTER KATEGORI */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-2 text-xs border border-[#E9EBED]">
             <div className="flex justify-between items-center mb-1">
               <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">Filter Kategori</h3>
-              <button onClick={() => setIsFilterModalOpen(false)} className="text-[#86899B]"><X size={16} /></button>
+              <button onClick={() => setIsFilterModalOpen(false)} className="text-[#86899B]"><X size={15} /></button>
             </div>
-            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2.5 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
-              <span>Semua Kategori</span>{selectedKategoriFilter === 'Semua' && <Check size={14} />}
+            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+              <span>Semua Kategori</span>{selectedKategoriFilter === 'Semua' && <Check size={13} />}
             </button>
             {daftarKategoriProduk.map(k => (
-              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2.5 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
-                <span>{k}</span>{selectedKategoriFilter === k && <Check size={14} />}
+              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+                <span>{k}</span>{selectedKategoriFilter === k && <Check size={13} />}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* MODAL TAMBAH/EDIT PRODUK */}
+      {/* MODAL TAMBAH / EDIT PRODUK */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED]">
             <div className="flex justify-between items-center border-b border-[#E9EBED] pb-2">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B]"><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveProduk} className="flex flex-col gap-3">
@@ -845,13 +641,13 @@ export default function OwnerProduk() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">Kategori</label>
-                  <select value={formKategori} onChange={(e) => setFormKategori(e.target.value)} className="bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none focus:ring-2 focus:ring-[#01a684]">
+                  <select value={formKategori} onChange={(e) => setFormKategori(e.target.value)} className="bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none">
                     {daftarKategoriProduk.map(kat => (<option key={kat} value={kat}>{kat}</option>))}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">SKU / Barcode</label>
-                  <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none focus:ring-2 focus:ring-[#01a684]" />
+                  <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none" />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -865,16 +661,24 @@ export default function OwnerProduk() {
                 <div className="flex flex-col gap-2 bg-[#F1F2F6] p-3 rounded-2xl border border-[#E9EBED]">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-[#181b2b]">Pilih Bahan dari Gudang</span>
-                    <button type="button" onClick={handleAddResepRow} className="text-[#01a684] font-bold cursor-pointer">+ Bahan</button>
+                    <button type="button" onClick={() => setSelectedResep([...selectedResep, { bahanId: '', qty: '' }])} className="text-[#01a684] font-bold cursor-pointer">+ Bahan</button>
                   </div>
                   {selectedResep.map((item, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
-                      <select value={item.bahanId} onChange={(e) => handleResepChange(idx, 'bahanId', e.target.value)} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
+                      <select value={item.bahanId} onChange={(e) => {
+                        const updated = [...selectedResep];
+                        updated[idx].bahanId = e.target.value;
+                        setSelectedResep(updated);
+                      }} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
                         <option value="">Pilih Bahan...</option>
                         {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
                       </select>
-                      <input type="number" step="0.01" value={item.qty} onChange={(e) => handleResepChange(idx, 'qty', e.target.value)} placeholder="Qty" className="w-16 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] text-center font-bold outline-none" required />
-                      {selectedResep.length > 1 && (<button type="button" onClick={() => handleRemoveResepRow(idx)} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                      <input type="number" step="0.01" value={item.qty} onChange={(e) => {
+                        const updated = [...selectedResep];
+                        updated[idx].qty = e.target.value;
+                        setSelectedResep(updated);
+                      }} placeholder="Qty" className="w-16 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] text-center font-bold outline-none" required />
+                      {selectedResep.length > 1 && (<button type="button" onClick={() => setSelectedResep(selectedResep.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
                     </div>
                   ))}
                 </div>
@@ -883,11 +687,11 @@ export default function OwnerProduk() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
                     <label className="font-bold text-[#181b2b]">Stok Awal</label>
-                    <input type="number" value={formStokManual} onChange={(e) => setFormStokManual(e.target.value)} placeholder="50" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" />
+                    <input type="number" value={formStokManual} onChange={(e) => setFormStokManual(e.target.value)} placeholder="50" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none" />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="font-bold text-[#181b2b]">Alert Minimum</label>
-                    <input type="number" value={formStokMin} onChange={(e) => setFormStokMin(e.target.value)} placeholder="5" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" />
+                    <input type="number" value={formStokMin} onChange={(e) => setFormStokMin(e.target.value)} placeholder="5" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none" />
                   </div>
                 </div>
               )}
@@ -916,18 +720,31 @@ export default function OwnerProduk() {
                 <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-2.5">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-[#01a684] uppercase text-[10px]">Daftar Varian & Harga:</span>
-                    <button type="button" onClick={handleAddVarianRow} className="text-[#01a684] font-bold cursor-pointer text-[11px]">+ Varian</button>
+                    <button type="button" onClick={() => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '' }])} className="text-[#01a684] font-bold cursor-pointer text-[11px]">+ Varian</button>
                   </div>
                   <div className="flex flex-col gap-2">
                     {formVarianList.map((v, idx) => (
                       <div key={v.id || idx} className="bg-white border border-[#E9EBED] p-2.5 rounded-xl flex flex-col gap-2">
                         <div className="flex gap-2 items-center">
-                          <input type="text" value={v.nama} onChange={(e) => handleVarianChange(idx, 'nama', e.target.value)} placeholder="Nama Varian" className="flex-1 bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold outline-none" required />
-                          {formVarianList.length > 1 && (<button type="button" onClick={() => handleRemoveVarianRow(idx)} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                          <input type="text" value={v.nama} onChange={(e) => {
+                            const updated = [...formVarianList];
+                            updated[idx].nama = e.target.value;
+                            setFormVarianList(updated);
+                          }} placeholder="Nama Varian" className="flex-1 bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold outline-none" required />
+                          {formVarianList.length > 1 && (<button type="button" onClick={() => setFormVarianList(formVarianList.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <input type="text" value={v.hpp} onChange={(e) => handleVarianChange(idx, 'hpp', formatRupiah(e.target.value))} placeholder="HPP (Modal)" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-medium outline-none" />
-                          <input type="text" value={v.hargaJual} onChange={(e) => handleVarianChange(idx, 'hargaJual', formatRupiah(e.target.value))} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-bold text-[#01a684] outline-none" required />
+                          <input type="text" value={v.hpp} onChange={(e) => {
+                            const updated = [...formVarianList];
+                            updated[idx].hpp = formatRupiah(e.target.value);
+                            setFormVarianList(updated);
+                          }} placeholder="HPP (Modal)" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-medium outline-none" />
+                          <input type="text" value={v.hargaJual} onChange={(e) => {
+                            const updated = [...formVarianList];
+                            updated[idx].hargaJual = formatRupiah(e.target.value);
+                            setFormTersedia={setFormVarianList}
+                            setFormVarianList(updated);
+                          }} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-1.5 text-xs font-bold text-[#01a684] outline-none" required />
                         </div>
                       </div>
                     ))}
@@ -936,7 +753,7 @@ export default function OwnerProduk() {
               )}
               <div className="flex gap-2 mt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer">Batal</button>
-                <button type="submit" className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm">{isEditMode ? 'Simpan Perubahan' : 'Simpan Menu'}</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Simpan Menu')}</button>
               </div>
             </form>
           </div>
