@@ -283,9 +283,9 @@ export default function OwnerBahan() {
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-32 lg:pb-12 font-sans antialiased relative">
       
-      {/* HEADER COMPACT */}
+      {/* HEADER COMPACT & RESPONSIF */}
       <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-3 lg:px-10 pt-[env(safe-area-inset-top)]">
-        <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md lg:max-w-7xl mx-auto">
+        <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md md:max-w-3xl lg:max-w-7xl mx-auto">
           <button 
             onClick={() => navigate(-1)} 
             className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0"
@@ -301,8 +301,8 @@ export default function OwnerBahan() {
         </div>
       </header>
 
-      {/* MAIN CONTAINER RESPONSIF */}
-      <main className="p-3 lg:p-8 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
+      {/* MAIN CONTAINER RESPONSIF (MELUAS PENUH DI TABLET & DESKTOP) */}
+      <main className="p-3 lg:p-8 max-w-md md:max-w-3xl lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
 
         {/* HERO BANNER BERSIH TANPA WATERMARK */}
         <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#181b2b] text-white rounded-2xl lg:rounded-3xl p-4 lg:p-8 shadow-md relative overflow-hidden flex flex-col gap-2">
@@ -375,7 +375,7 @@ export default function OwnerBahan() {
           <Plus size={15} /> Tambah Bahan Baku
         </button>
 
-        {/* DAFTAR BAHAN BAKU: 3-4 KOLOM DI MOBILE, GRID LUAS DI TABLET/DESKTOP */}
+        {/* DAFTAR BAHAN BAKU: GRID RESPONSIF */}
         <section className="bg-white/75 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 overflow-hidden shadow-xs p-3 lg:p-6">
           <div className="pb-3 mb-3 border-b border-[#E9EBED]/50 flex justify-between items-center">
             <h2 className="font-bold text-[11px] lg:text-xs uppercase text-[#181b2b] tracking-wider">Daftar Bahan Baku & HPP</h2>

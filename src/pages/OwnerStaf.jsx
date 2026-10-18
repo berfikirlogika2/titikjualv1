@@ -27,7 +27,6 @@ export default function OwnerStaf() {
   const [stafList, setStafList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Ambil data real-time dari tabel profiles berdasarkan owner_id teks di localStorage
   useEffect(() => {
     const fetchStaf = async () => {
       setLoading(true);
@@ -49,7 +48,7 @@ export default function OwnerStaf() {
         
         if (data) {
           const formattedData = data.map(item => ({
-            id: item.id, // ID unik dari baris database profiles
+            id: item.id,
             nama: item.full_name || item.username || 'Tanpa Nama',
             role: item.role ? item.role.toUpperCase() : 'STAFF',
             gajiPokok: item.gaji_pokok || 3000000,
@@ -72,49 +71,47 @@ export default function OwnerStaf() {
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-36 lg:pb-12 font-sans antialiased relative">
       
-      {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-4 lg:px-10 pt-[env(safe-area-inset-top)]">
-        <div className="h-14 lg:h-16 flex items-center justify-between relative max-w-md lg:max-w-7xl mx-auto">
+      {/* HEADER RESPONSIF */}
+      <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-3 lg:px-10 pt-[env(safe-area-inset-top)]">
+        <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md md:max-w-3xl lg:max-w-7xl mx-auto">
           <button 
             onClick={() => navigate(-1)} 
-            className="w-9 h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0 border-0 bg-transparent"
+            className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0 border-0 bg-transparent"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
           
-          <h1 className="text-xs lg:text-sm font-bold uppercase tracking-wider text-[#181b2b] absolute left-1/2 -translate-x-1/2 truncate max-w-[200px] text-center">
+          <h1 className="text-[11px] lg:text-sm font-bold uppercase tracking-wider text-[#181b2b] absolute left-1/2 -translate-x-1/2 truncate max-w-[200px] text-center">
             Pengaturan Staf & Insentif
           </h1>
 
-          <div className="w-9 h-9 shrink-0" />
+          <div className="w-8 h-8 shrink-0" />
         </div>
       </header>
 
-      {/* KONTEN UTAMA */}
-      <main className="p-4 max-w-md lg:max-w-7xl mx-auto flex flex-col gap-4">
+      {/* KONTEN UTAMA RESPONSIF (UKURAN SAMA DENGAN PENGATURAN) */}
+      <main className="p-3 lg:p-8 max-w-md md:max-w-3xl lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
 
         {/* HERO CARD */}
-        <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-2xl p-4 lg:p-6 shadow-md relative overflow-hidden flex items-center">
-          <div className="relative z-10 w-full">
-            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-              <BarChart3 size={11} className="text-[#01a684]" /> EVALUASI PENJUALAN TIM
-            </span>
-            <h2 className="text-base lg:text-xl font-black tracking-tight mt-0.5">Skema Gaji & Komisi Insentif</h2>
-            <p className="text-[11px] text-slate-300 mt-1 leading-relaxed max-w-lg">
-              Kelola data seluruh tim outlet Anda dalam satu kendali terpusat.
-            </p>
-          </div>
+        <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-2xl lg:rounded-3xl p-4 lg:p-8 shadow-md relative overflow-hidden flex flex-col gap-2">
+          <span className="text-[9px] lg:text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+            <BarChart3 size={11} /> EVALUASI PENJUALAN TIM
+          </span>
+          <h2 className="text-sm lg:text-2xl font-black tracking-tight">Skema Gaji & Komisi Insentif</h2>
+          <p className="text-[10px] lg:text-sm text-slate-300 leading-relaxed max-w-xl">
+            Kelola data seluruh tim outlet Anda dalam satu kendali terpusat.
+          </p>
         </div>
 
         {/* TOMBOL TAMBAH STAFF */}
         <button 
           onClick={() => navigate('/owner/register-staff')}
-          className="w-full bg-[#01a684] text-white font-bold py-3.5 rounded-xl shadow-sm hover:opacity-90 transition-all cursor-pointer border-0 flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+          className="w-full bg-[#01a684] text-white font-bold py-3 rounded-xl shadow-xs hover:opacity-90 transition-all cursor-pointer border-0 flex items-center justify-center gap-1.5 text-[11px] lg:text-xs uppercase tracking-wider"
         >
-          <UserPlus size={16} /> Tambah Staff & Karyawan
+          <UserPlus size={15} /> Tambah Staff & Karyawan
         </button>
 
-        {/* DAFTAR TIM STAF - LAYOUT COMPACT RESPONSIVE */}
+        {/* DAFTAR TIM STAF - GRID RESPONSIF */}
         {loading ? (
           <p className="text-xs text-center text-[#86899B] py-8">Memuat data staf...</p>
         ) : stafList.length === 0 ? (
@@ -122,29 +119,28 @@ export default function OwnerStaf() {
             <p className="text-xs text-[#86899B]">Belum ada data anggota tim terdaftar dengan ID toko ini.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
             {stafList.map((staf) => {
               const targetBln = staf.targetBulanan || 1;
               const omzetBln = staf.omzetBulanIni || 0;
               const progressBulanan = Math.min(100, Math.round((omzetBln / targetBln) * 100));
 
               return (
-                <div key={staf.id} className="bg-white/85 backdrop-blur-md rounded-2xl border border-white/90 p-3.5 shadow-xs flex flex-col justify-between gap-2.5">
+                <div key={staf.id} className="bg-white rounded-xl border border-[#E9EBED] p-3 shadow-2xs flex flex-col justify-between gap-2.5">
                   
-                  {/* Bagian atas: Avatar, Nama, Role, & Tombol Pengaturan */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <div className="w-8 h-8 rounded-xl bg-[#01a684] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
                         {staf.nama ? staf.nama.charAt(0).toUpperCase() : 'S'}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h3 className="text-xs font-bold text-[#181b2b] truncate max-w-[130px]">{staf.nama}</h3>
-                          <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-[#01a684] border border-emerald-200 uppercase">
+                        <div className="flex items-center gap-1 truncate">
+                          <h3 className="text-[11px] font-bold text-[#181b2b] truncate">{staf.nama}</h3>
+                          <span className="text-[8px] font-bold px-1 rounded bg-emerald-50 text-[#01a684] border border-emerald-200 uppercase shrink-0">
                             {staf.role}
                           </span>
                         </div>
-                        <p className="text-[10px] text-[#86899B] mt-0.5">
+                        <p className="text-[9px] text-[#86899B] mt-0.5">
                           Gaji: Rp {formatRupiah(staf.gajiPokok)}
                         </p>
                       </div>
@@ -152,16 +148,15 @@ export default function OwnerStaf() {
 
                     <button 
                       onClick={() => navigate(`/owner/staf/detail/${staf.id}`)}
-                      className="p-1.5 rounded-lg bg-[#F1F2F6] text-[#86899B] hover:text-[#01a684] transition-all cursor-pointer border-0 shrink-0"
+                      className="p-1 rounded-lg bg-[#F1F2F6] text-[#86899B] hover:text-[#01a684] transition-all cursor-pointer border-0 shrink-0"
                       title="Pengaturan & Edit"
                     >
-                      <Settings2 size={14} />
+                      <Settings2 size={13} />
                     </button>
                   </div>
 
-                  {/* Progress Omzet Compact */}
-                  <div className="flex flex-col gap-1 bg-[#F1F2F6]/70 p-2 rounded-xl">
-                    <div className="flex justify-between text-[9px] font-semibold">
+                  <div className="flex flex-col gap-1 bg-[#F1F2F6]/70 p-2 rounded-lg">
+                    <div className="flex justify-between text-[8px] font-semibold">
                       <span className="text-[#86899B]">Capaian Omzet</span>
                       <span className="text-[#181b2b] tabular-nums font-bold">
                         Rp {formatRupiah(omzetBln)} ({progressBulanan}%)
@@ -172,16 +167,15 @@ export default function OwnerStaf() {
                     </div>
                   </div>
 
-                  {/* Bagian bawah: Estimasi Komisi & Tombol Detail Rincian Dinamis Berdasarkan ID */}
-                  <div className="flex items-center justify-between pt-1 border-t border-[#E9EBED]/60 text-[11px]">
+                  <div className="flex items-center justify-between pt-1 border-t border-[#E9EBED]/50 text-[10px]">
                     <div>
-                      <span className="text-[8px] text-[#86899B] block">Komisi:</span>
-                      <strong className="text-[#01a684] text-[11px] font-black">Rp {formatRupiah(staf.komisiTerkumpul)}</strong>
+                      <span className="text-[7px] text-[#86899B] block uppercase">Komisi:</span>
+                      <strong className="text-[#01a684] text-[10px] font-black">Rp {formatRupiah(staf.komisiTerkumpul)}</strong>
                     </div>
 
                     <button 
                       onClick={() => navigate(`/owner/staf/detail/${staf.id}`)}
-                      className="px-2.5 py-1 bg-emerald-50 text-[#01a684] text-[9px] font-bold rounded-lg border border-emerald-200 flex items-center gap-0.5 cursor-pointer border-0 shadow-xs"
+                      className="px-2 py-1 bg-emerald-50 text-[#01a684] text-[9px] font-bold rounded-lg border border-emerald-200 flex items-center gap-0.5 cursor-pointer border-0 shadow-xs"
                     >
                       Detail <ChevronRight size={10} />
                     </button>

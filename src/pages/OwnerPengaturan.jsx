@@ -8,12 +8,88 @@ import {
 import { supabase } from '../supabaseClient';
 import OwnerBottomNav from './OwnerBottomNav';
 
+// DATA MASTER PAKET LANGGANAN (100% SINKRON DENGAN REGISTER PLAN)
+export const MASTER_PLANS_REGISTER = [
+  {
+    id: 'starter',
+    name: 'Starter Pack',
+    badge: 'UMKM & Rintisan',
+    desc: 'Cocok untuk usaha baru yang membutuhkan sistem kasir digital dasar yang rapi.',
+    price: '150.000',
+    numericPrice: 150000,
+    period: '/ bulan',
+    icon: Store,
+    isPopular: false,
+    features: [
+      '1 Akun Kasir Aktif',
+      'Maksimal 100 Katalog Produk',
+      'Laporan Penjualan Harian Dasar',
+      'Cetak Struk Bluetooth Thermal 58mm',
+    ],
+  },
+  {
+    id: 'growth',
+    name: 'Growth Pack',
+    badge: 'Paling Populer',
+    desc: 'Fitur lengkap dengan manajemen bahan baku & HPP untuk bisnis yang sedang berkembang.',
+    price: '250.000',
+    numericPrice: 250000,
+    period: '/ bulan',
+    icon: TrendingUp,
+    isPopular: true,
+    features: [
+      'Hingga 3 Akun Kasir & Staf',
+      'Katalog Produk & Varian Tanpa Batas',
+      'Manajemen Stok Bahan Baku & Resep HPP',
+      'Laporan Analitik Laba Rugi Lengkap',
+      'Kustomisasi Logo & 4 Template Struk',
+    ],
+  },
+  {
+    id: 'premium',
+    name: 'Premium Pack',
+    badge: 'Skala Besar / Pro',
+    desc: 'Solusi komprehensif tanpa batas untuk operasional bisnis penuh & multi-akses.',
+    price: '450.000',
+    numericPrice: 450000,
+    period: '/ bulan',
+    icon: Diamond,
+    isPopular: false,
+    features: [
+      'Akun Kasir & Admin Tanpa Batas',
+      'Semua Fitur Growth Pack (Produk & Resep)',
+      'Manajemen Shift Kasir & Audit Laci Uang',
+      'Manajemen Pajak, Diskon & Promo Otomatis',
+      'Dukungan Prioritas Teknis 24/7',
+    ],
+  },
+];
+
 export default function OwnerPengaturan() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+
+  // State Daftar Plan (Mengikuti RegisterPlan jika disimpan di localStorage/Supabase, atau fallback ke MASTER_PLANS_REGISTER)
+  const [plans, setPlans] = useState(() => {
+    try {
+      const savedMasterPlans = localStorage.getItem('pos_master_plans');
+      if (savedMasterPlans) {
+        const parsed = JSON.parse(savedMasterPlans);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(p => ({
+            ...p,
+            icon: p.id === 'starter' ? Store : p.id === 'premium' ? Diamond : TrendingUp
+          }));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return MASTER_PLANS_REGISTER;
+  });
 
   // State Informasi Toko
   const [toko, setToko] = useState({
@@ -27,7 +103,7 @@ export default function OwnerPengaturan() {
   const [isLainnyaSelected, setIsLainnyaSelected] = useState(false);
   const [kategoriCustom, setKategoriCustom] = useState('');
 
-  // State Langganan (Mengerucut dari Pemilihan Plan Awal)
+  // State Langganan (Mengerucut langsung ke paket dari RegisterPlan)
   const [paketAktif, setPaketAktif] = useState({
     id: 'growth',
     nama: 'Growth Pack',
@@ -44,7 +120,7 @@ export default function OwnerPengaturan() {
   const [customTexts, setCustomTexts] = useState([]);
   const [inputCustomText, setInputCustomText] = useState('');
 
-  // State Manajemen Shift & Kasir (Hanya Buka & Tutup Shift, Tanpa Akses Laporan)
+  // State Manajemen Shift & Kasir (1. Wajib Input Buka Shift & Tutup Shift)
   const [wajibBukaTutupShift, setWajibBukaTutupShift] = useState(true);
 
   // State Metode Pembayaran Kasir
@@ -78,45 +154,42 @@ export default function OwnerPengaturan() {
     'Lainnya',
   ];
 
-  const plans = [
-    {
-      id: 'starter',
-      name: 'Starter Pack',
-      desc: 'Untuk usaha pemula yang butuh sistem dasar.',
-      price: '150.000',
-      icon: Store,
-      features: ['1 Pengguna Kasir', 'Maksimal 100 Produk', 'Laporan Penjualan Dasar'],
-    },
-    {
-      id: 'growth',
-      name: 'Growth Pack',
-      desc: 'Fitur lengkap untuk bisnis berkembang.',
-      price: '250.000',
-      isPopular: true,
-      icon: TrendingUp,
-      features: ['3 Pengguna Kasir', 'Produk Tidak Terbatas', 'Manajemen Inventori Lanjut'],
-    },
-    {
-      id: 'premium',
-      name: 'Premium Pack',
-      desc: 'Solusi komprehensif skala besar.',
-      price: '450.000',
-      icon: Diamond,
-      features: ['Pengguna Tidak Terbatas', 'Multi-Cabang (Hingga 5)', 'Dukungan Prioritas 24/7'],
-    },
-  ];
-
   const getOwnerId = () => {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Sinkronisasi Data Pengaturan & Pendaftaran dari Supabase
+  // Helper untuk mencocokkan ID atau Nama Paket dari RegisterPlan ke daftar plans
+  const findMatchingPlan = (idOrName) => {
+    if (!idOrName) return plans[1];
+    const clean = idOrName.toString().toLowerCase();
+    return (
+      plans.find(
+        (p) =>
+          p.id.toLowerCase() === clean ||
+          p.name.toLowerCase() === clean ||
+          clean.includes(p.id.toLowerCase())
+      ) || plans[1]
+    );
+  };
+
+  // Sinkronisasi Data Pengaturan & Paket RegisterPlan dari Supabase
   const fetchPengaturan = async () => {
     setLoading(true);
     try {
       const currentOwnerId = getOwnerId();
-      
-      // 1. Cek data di tabel store_settings
+
+      // Cek apakah ada paket yang baru dipilih dari halaman RegisterPlan di localStorage
+      const savedPlanRaw = localStorage.getItem('selected_plan') || localStorage.getItem('register_plan');
+      let planFromRegister = null;
+      if (savedPlanRaw) {
+        try {
+          planFromRegister = JSON.parse(savedPlanRaw);
+        } catch {
+          planFromRegister = { id: savedPlanRaw };
+        }
+      }
+
+      // 1. Cek data di tabel store_settings Supabase
       const { data: settingsData, error: settingsError } = await supabase
         .from('store_settings')
         .select('*')
@@ -139,13 +212,16 @@ export default function OwnerPengaturan() {
         setIsLainnyaSelected(isLainnya);
         setKategoriCustom(settingsData.kategori_custom || (isLainnya && kat !== 'Lainnya' ? kat : ''));
 
+        // Pastikan info paket selalu selaras dengan definisi di RegisterPlan
+        const matchedPlan = findMatchingPlan(settingsData.paket_id || settingsData.paket_nama || planFromRegister?.id);
+
         setPaketAktif({
-          id: settingsData.paket_id || 'growth',
-          nama: settingsData.paket_nama || 'Growth Pack',
+          id: matchedPlan.id,
+          nama: matchedPlan.name,
           status: settingsData.paket_status || 'Aktif',
           terakhirBayar: settingsData.paket_terakhir_bayar || '-',
           berakhir: settingsData.paket_berakhir || '-',
-          harga: settingsData.paket_harga || '250.000 / bulan'
+          harga: `${matchedPlan.price} / bulan`
         });
 
         setWajibBukaTutupShift(settingsData.wajib_buka_tutup_shift ?? true);
@@ -156,12 +232,10 @@ export default function OwnerPengaturan() {
         if (settingsData.logo_url) setLogoStrukPreview(settingsData.logo_url);
         if (settingsData.custom_texts) setCustomTexts(settingsData.custom_texts);
       } else {
-        // 2. Fallback: Tarik dari data pendaftaran awal (Supabase Auth / Users / LocalStorage Pendaftaran)
+        // 2. Jika belum ada di store_settings, tarik dari data pendaftaran awal (Supabase Auth / RegisterPlan)
         const { data: authData } = await supabase.auth.getUser();
         const userMeta = authData?.user?.user_metadata || {};
-        
         const savedRegData = JSON.parse(localStorage.getItem('register_data') || '{}');
-        const savedPlanData = JSON.parse(localStorage.getItem('selected_plan') || '{}');
 
         const initialNamaToko = userMeta.nama_toko || userMeta.nama_usaha || savedRegData.namaToko || 'Kedai Kopi Budi';
         const initialTelepon = userMeta.telepon || userMeta.no_hp || savedRegData.telepon || '';
@@ -169,8 +243,8 @@ export default function OwnerPengaturan() {
         const initialAlamat = userMeta.alamat || savedRegData.alamat || '';
         const initialKategori = userMeta.kategori_bisnis || savedRegData.kategori || 'F&B (Kuliner / Cafe / Resto)';
 
-        const planId = userMeta.paket_id || savedPlanData.id || 'growth';
-        const matchedPlan = plans.find(p => p.id === planId) || plans[1];
+        const rawPlanKey = userMeta.paket_id || userMeta.plan || planFromRegister?.id || planFromRegister?.name || 'growth';
+        const matchedPlan = findMatchingPlan(rawPlanKey);
 
         const now = new Date();
         const nextMonth = new Date();
@@ -195,7 +269,7 @@ export default function OwnerPengaturan() {
         });
         setPaketAktif(initialPaket);
 
-        // Buat baris awal di store_settings agar tersinkronisasi
+        // Simpan otomatis baris pertama ke Supabase store_settings
         await supabase.from('store_settings').upsert([{
           owner_id: currentOwnerId,
           nama_toko: initialNamaToko,
@@ -233,7 +307,7 @@ export default function OwnerPengaturan() {
     if (!loading) setIsDirty(true);
   };
 
-  // Simpan Semua Pengaturan ke Supabase & LocalStorage (Untuk Konsumsi Instan Halaman Kasir)
+  // Simpan Semua Pengaturan ke Supabase & LocalStorage
   const handleSaveAll = async () => {
     setIsSaving(true);
     try {
@@ -268,11 +342,9 @@ export default function OwnerPengaturan() {
 
       if (error) throw error;
 
-      // Sinkronkan juga ke cache lokal agar halaman Kasir langsung merespons tanpa jeda
       localStorage.setItem('pos_store_settings', JSON.stringify(payload));
-
       setIsDirty(false);
-      alert('Semua pengaturan sistem, aturan shift kasir, metode pembayaran & template struk berhasil disimpan ke Supabase!');
+      alert('Seluruh pengaturan sistem berhasil disimpan ke Supabase!');
     } catch (err) {
       console.error('Gagal menyimpan pengaturan:', err.message);
       alert('Gagal menyimpan ke database: ' + err.message);
@@ -292,6 +364,7 @@ export default function OwnerPengaturan() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
+  const activePlanDetail = findMatchingPlan(paketAktif.id);
   const isHighestPlan = paketAktif.id === 'premium';
 
   const handleLogoUpload = (e) => {
@@ -341,7 +414,7 @@ export default function OwnerPengaturan() {
   const handleProcessPayment = async () => {
     setIsProcessingPayment(true);
     setTimeout(async () => {
-      const chosen = plans.find(p => p.id === selectedPlanToUpgrade);
+      const chosen = findMatchingPlan(selectedPlanToUpgrade);
       const now = new Date();
       const nextMonth = new Date();
       nextMonth.setMonth(now.getMonth() + 1);
@@ -357,6 +430,14 @@ export default function OwnerPengaturan() {
       };
 
       setPaketAktif(newPaket);
+      // Simpan juga ke localStorage 'selected_plan' agar sinkron dua arah dengan RegisterPlan
+      localStorage.setItem('selected_plan', JSON.stringify({
+        id: chosen.id,
+        name: chosen.name,
+        price: chosen.price,
+        features: chosen.features
+      }));
+
       try {
         await supabase.from('store_settings').update({
           paket_id: newPaket.id,
@@ -373,7 +454,7 @@ export default function OwnerPengaturan() {
       setIsProcessingPayment(false);
       setIsUpgradeModalOpen(false);
       setPaymentMethod(null);
-      alert('Pembayaran Berhasil! Paket langganan Anda telah diperbarui di Supabase.');
+      alert(`Pembayaran Berhasil! Paket langganan Anda kini aktif sebagai ${chosen.name}.`);
     }, 1200);
   };
 
@@ -440,7 +521,7 @@ export default function OwnerPengaturan() {
             {/* KOLOM KIRI (7 KOLOM DI DESKTOP): LANGGANAN, PROFIL TOKO, SHIFT, PEMBAYARAN, MODE BISNIS */}
             <div className="lg:col-span-7 flex flex-col gap-3 lg:gap-5">
               
-              {/* SECTION 1: STATUS LANGGANAN */}
+              {/* SECTION 1: STATUS LANGGANAN (SINKRON DENGAN FITUR REGISTER PLAN) */}
               <section className="bg-white/80 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 p-4 lg:p-5 shadow-xs">
                 <div className="flex items-center justify-between mb-3 border-b border-[#E9EBED]/60 pb-2.5">
                   <div className="flex items-center gap-2">
@@ -448,8 +529,8 @@ export default function OwnerPengaturan() {
                       <Crown size={16} />
                     </div>
                     <div>
-                      <h2 className="text-[11px] lg:text-xs font-bold uppercase text-[#181b2b] tracking-wider">Status Langganan</h2>
-                      <p className="text-[9px] lg:text-[10px] text-[#86899B]">Tersinkronisasi dengan paket pendaftaran awal</p>
+                      <h2 className="text-[11px] lg:text-xs font-bold uppercase text-[#181b2b] tracking-wider">Status & Fitur Langganan</h2>
+                      <p className="text-[9px] lg:text-[10px] text-[#86899B]">Sesuai dengan paket yang dipilih pada Register Plan</p>
                     </div>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-[9px] lg:text-[10px] font-bold flex items-center gap-1 shrink-0 ${
@@ -459,18 +540,33 @@ export default function OwnerPengaturan() {
                   </span>
                 </div>
 
-                <div className="bg-[#F1F2F6]/80 p-3 rounded-xl grid grid-cols-2 sm:grid-cols-3 gap-2 border border-[#E9EBED]/60 text-[11px]">
-                  <div>
-                    <span className="text-[9px] text-[#86899B] block uppercase font-bold">Paket Aktif</span>
-                    <span className="font-bold text-[#181b2b]">{paketAktif.nama}</span>
+                <div className="bg-[#F1F2F6]/80 p-3 rounded-xl flex flex-col gap-2.5 border border-[#E9EBED]/60 text-[11px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[9px] text-[#86899B] block uppercase font-bold">Paket Saat Ini</span>
+                      <span className="font-extrabold text-[#181b2b]">{activePlanDetail.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-[#86899B] block uppercase font-bold">Biaya Paket</span>
+                      <span className="font-bold text-slate-700">Rp {activePlanDetail.price} {activePlanDetail.period}</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-[9px] text-[#86899B] block uppercase font-bold">Masa Berakhir</span>
+                      <span className="font-bold text-[#01a684]">{paketAktif.berakhir}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-[#86899B] block uppercase font-bold">Biaya Langganan</span>
-                    <span className="font-bold text-slate-700">Rp {paketAktif.harga}</span>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <span className="text-[9px] text-[#86899B] block uppercase font-bold">Masa Berakhir</span>
-                    <span className="font-bold text-[#01a684]">{paketAktif.berakhir}</span>
+
+                  {/* Rincian Fitur Aktif Sesuai RegisterPlan */}
+                  <div className="pt-2 border-t border-[#E9EBED] flex flex-col gap-1.5">
+                    <span className="text-[9px] font-bold uppercase text-[#86899B]">Fitur Paket {activePlanDetail.name} Anda:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      {activePlanDetail.features.map((feat, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[10px] text-slate-700 font-medium">
+                          <CheckCircle2 size={12} className="text-[#01a684] shrink-0" />
+                          <span className="truncate">{feat}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -480,7 +576,7 @@ export default function OwnerPengaturan() {
                     onClick={() => { setSelectedPlanToUpgrade(paketAktif.id); setPaymentMethod(null); setIsUpgradeModalOpen(true); }}
                     className="flex-1 bg-[#01a684] text-white py-2.5 rounded-xl text-[11px] lg:text-xs font-bold hover:opacity-90 transition-all cursor-pointer shadow-xs"
                   >
-                    Perpanjang / Upgrade Paket
+                    Perpanjang / Upgrade Paket Plan
                   </button>
                   <button 
                     type="button"
@@ -576,7 +672,7 @@ export default function OwnerPengaturan() {
                 </div>
               </section>
 
-              {/* SECTION 3: MANAJEMEN SHIFT & KASIR (WAJIB BUKA & TUTUP SHIFT, TANPA AKSES LAPORAN) */}
+              {/* SECTION 3: MANAJEMEN SHIFT & KASIR */}
               <section className="bg-white/80 backdrop-blur-md rounded-2xl lg:rounded-3xl border border-white/90 p-4 lg:p-5 shadow-xs">
                 <div className="flex items-center gap-2 mb-3 border-b border-[#E9EBED]/60 pb-2.5">
                   <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#01a684] flex items-center justify-center shrink-0">
@@ -592,7 +688,7 @@ export default function OwnerPengaturan() {
                   <div className="flex flex-col">
                     <span className="font-bold text-xs text-[#181b2b]">1. Wajib Input Buka Shift & Tutup Shift</span>
                     <span className="text-[10px] text-[#86899B] leading-relaxed mt-0.5">
-                      Saat diaktifkan, kasir yang membuka aplikasi wajib melakukan <strong>Open Shift</strong> dengan menginput uang tunai (cash) di laci kasir, serta wajib menginput total uang fisik di meja kasir saat <strong>Close Shift</strong>.
+                      Saat diaktifkan, kasir wajib melakukan <strong>Open Shift</strong> dengan menginput uang tunai (cash) di laci kasir saat membuka aplikasi, serta wajib menginput total uang fisik di meja kasir saat <strong>Close Shift</strong>.
                     </span>
                   </div>
                   <input 
@@ -944,7 +1040,7 @@ export default function OwnerPengaturan() {
         </div>
       )}
 
-      {/* MODAL PILIH KATEGORI BISNIS (DENGAN STRUKTUR FLEX & FOOTER STATIS) */}
+      {/* MODAL PILIH KATEGORI BISNIS */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-xs w-full shadow-2xl flex flex-col max-h-[80vh] border border-[#E9EBED] overflow-hidden text-xs">
@@ -980,58 +1076,99 @@ export default function OwnerPengaturan() {
         </div>
       )}
 
-      {/* MODAL UPGRADE PAKET (DENGAN FOOTER STATIS ANTI-MENIMPA) */}
+      {/* MODAL UPGRADE PAKET (MENYESUAIKAN 100% DENGAN HALAMAN REGISTER PLAN) */}
       {isUpgradeModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col max-h-[85vh] border border-[#E9EBED] overflow-hidden text-xs">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl flex flex-col max-h-[88vh] border border-[#E9EBED] overflow-hidden text-xs">
             
+            {/* Header Modal Statis */}
             <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">
-                {!paymentMethod ? 'Pilih Paket & Perpanjangan' : 'Selesaikan Pembayaran'}
-              </h3>
-              <button onClick={() => setIsUpgradeModalOpen(false)} className="text-[#86899B] cursor-pointer"><X size={18} /></button>
+              <div>
+                <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">
+                  {!paymentMethod ? 'Pilih Paket Langganan (Register Plan)' : 'Selesaikan Pembayaran Paket'}
+                </h3>
+                <p className="text-[10px] text-[#86899B]">Informasi paket & fitur terintegrasi langsung dengan halaman Register Plan</p>
+              </div>
+              <button onClick={() => setIsUpgradeModalOpen(false)} className="text-[#86899B] cursor-pointer p-1"><X size={18} /></button>
             </div>
 
+            {/* Body Modal Scrollable */}
             <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-3">
               {!paymentMethod ? (
                 <>
                   {!isHighestPlan && (
-                    <div className="bg-gradient-to-r from-[#01a684] to-teal-700 rounded-2xl p-3.5 text-white shadow-xs flex flex-col gap-1">
-                      <div className="inline-flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase w-max">
-                        <Sparkles size={11} /> Penawaran Upgrade
+                    <div className="bg-gradient-to-r from-[#181b2b] via-[#23273a] to-[#01a684] rounded-2xl p-3.5 text-white shadow-xs flex flex-col gap-1">
+                      <div className="inline-flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase w-max text-emerald-300">
+                        <Sparkles size={11} /> Sesuai Pilihan Plan Pendaftaran
                       </div>
-                      <h4 className="font-extrabold text-xs mt-0.5">Upgrade Paket Lebih Untung!</h4>
-                      <p className="text-[10px] text-white/90">Nikmati fitur tanpa batas dengan upgrade ke level di atasnya.</p>
+                      <h4 className="font-extrabold text-xs mt-0.5">Tingkatkan Kapasitas Sistem POS Anda</h4>
+                      <p className="text-[10px] text-slate-200">Pilih paket di bawah untuk memperpanjang masa aktif atau upgrade fitur sesuai rincian Register Plan.</p>
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3">
                     {plans.map((plan) => {
                       const isSelected = selectedPlanToUpgrade === plan.id;
                       const isCurrent = paketAktif.id === plan.id;
-                      const IconComponent = plan.icon;
+                      const IconComponent = plan.icon || Store;
 
                       return (
                         <div
                           key={plan.id}
                           onClick={() => setSelectedPlanToUpgrade(plan.id)}
-                          className={`rounded-2xl p-3.5 flex flex-col justify-between cursor-pointer transition-all relative bg-white ${
-                            isSelected ? 'border-2 border-[#01a684] bg-emerald-50/20' : 'border border-[#E9EBED]'
+                          className={`rounded-2xl p-4 flex flex-col gap-3 cursor-pointer transition-all relative ${
+                            isSelected 
+                              ? 'border-2 border-[#01a684] bg-emerald-50/25 shadow-sm' 
+                              : 'border border-[#E9EBED] bg-white hover:border-slate-300'
                           }`}
                         >
-                          {isCurrent && <span className="absolute top-2.5 right-2.5 bg-slate-800 text-white text-[8px] px-2 py-0.5 rounded-full font-bold">PAKET SAAT INI</span>}
-                          <div className="flex items-start gap-2.5">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#01a684] text-white' : 'bg-gray-100 text-[#01a684]'}`}>
-                              <IconComponent size={16} />
-                            </div>
-                            <div className="flex-1 pr-16">
-                              <h4 className="text-xs font-bold text-[#181b2b]">{plan.name}</h4>
-                              <p className="text-[10px] text-[#86899B]">{plan.desc}</p>
-                              <div className="flex items-baseline gap-1 mt-1.5">
-                                <span className="text-[10px] text-[#86899B]">Rp</span>
-                                <span className={`text-sm font-black ${isSelected ? 'text-[#01a684]' : 'text-[#181b2b]'}`}>{plan.price}</span>
-                                <span className="text-[9px] text-[#86899B]">/bln</span>
+                          {/* Badge Status Paket */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                              plan.isPopular ? 'bg-emerald-100 text-[#01a684]' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {plan.badge || (plan.isPopular ? 'Paling Populer' : 'Paket POS')}
+                            </span>
+                            {isCurrent && (
+                              <span className="bg-[#181b2b] text-white text-[9px] px-2.5 py-0.5 rounded-full font-bold">
+                                PAKET AKTIF SAAT INI
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Judul & Harga Paket */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2.5">
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                isSelected ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#01a684]'
+                              }`}>
+                                <IconComponent size={18} />
                               </div>
+                              <div>
+                                <h4 className="text-xs lg:text-sm font-black text-[#181b2b]">{plan.name}</h4>
+                                <p className="text-[10px] text-[#86899B] leading-snug mt-0.5">{plan.desc}</p>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-[9px] text-[#86899B] block font-bold">Rp</span>
+                              <span className={`text-sm lg:text-base font-black ${isSelected ? 'text-[#01a684]' : 'text-[#181b2b]'}`}>
+                                {plan.price}
+                              </span>
+                              <span className="text-[9px] text-[#86899B] block">{plan.period || '/ bulan'}</span>
+                            </div>
+                          </div>
+
+                          {/* Daftar Fitur Lengkap (Sama Persis dengan RegisterPlan) */}
+                          <div className="pt-2.5 border-t border-[#E9EBED]/80 flex flex-col gap-1.5">
+                            <span className="text-[9px] font-bold uppercase text-[#86899B] tracking-wider">Fitur yang didapatkan:</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              {(plan.features || []).map((feat, idx) => (
+                                <div key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-700 font-medium">
+                                  <CheckCircle2 size={12} className="text-[#01a684] shrink-0 mt-0.5" />
+                                  <span>{feat}</span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -1041,12 +1178,17 @@ export default function OwnerPengaturan() {
                 </>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex justify-between items-center">
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-[#E9EBED] flex justify-between items-center">
                     <div>
                       <span className="text-[9px] text-[#86899B] block font-bold uppercase">Paket Dipilih:</span>
-                      <span className="font-bold text-xs text-[#181b2b]">{plans.find(p => p.id === selectedPlanToUpgrade)?.name}</span>
+                      <span className="font-extrabold text-xs text-[#181b2b]">{findMatchingPlan(selectedPlanToUpgrade)?.name}</span>
+                      <span className="text-[10px] text-[#01a684] font-bold block mt-0.5">
+                        Rp {findMatchingPlan(selectedPlanToUpgrade)?.price} / bulan
+                      </span>
                     </div>
-                    <button type="button" onClick={() => setPaymentMethod(null)} className="text-[10px] text-[#01a684] font-bold underline cursor-pointer">Ubah Paket</button>
+                    <button type="button" onClick={() => setPaymentMethod(null)} className="text-[10px] text-[#01a684] font-bold underline cursor-pointer">
+                      Ubah Paket
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -1060,7 +1202,7 @@ export default function OwnerPengaturan() {
                     </button>
                   </div>
 
-                  <div className="flex flex-col items-center gap-2 p-3 bg-[#F1F2F6] rounded-2xl">
+                  <div className="flex flex-col items-center gap-2 p-4 bg-[#F1F2F6] rounded-2xl">
                     {paymentMethod === 'bca' ? (
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-[10px] text-slate-500 uppercase font-bold">Virtual Account BCA</span>
@@ -1075,16 +1217,26 @@ export default function OwnerPengaturan() {
             </div>
 
             {/* Footer Statis Modal Upgrade */}
-            <div className="p-4 border-t border-[#E9EBED] bg-white shrink-0">
+            <div className="p-4 border-t border-[#E9EBED] bg-white shrink-0 flex flex-col gap-2">
               {!paymentMethod ? (
-                <button 
-                  type="button"
-                  onClick={() => setPaymentMethod('bca')}
-                  className="w-full bg-[#01a684] text-white font-bold py-3 rounded-xl shadow-xs hover:opacity-90 transition-all cursor-pointer text-xs flex items-center justify-center gap-1.5"
-                >
-                  <span>Lanjutkan ke Pembayaran ({plans.find(p => p.id === selectedPlanToUpgrade)?.name})</span>
-                  <ArrowRight size={14} />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/register-plan')}
+                    className="px-3 py-3 border border-[#E9EBED] text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-all cursor-pointer text-[11px]"
+                    title="Lihat halaman penuh Register Plan"
+                  >
+                    Halaman Plan
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setPaymentMethod('bca')}
+                    className="flex-1 bg-[#01a684] text-white font-bold py-3 rounded-xl shadow-xs hover:opacity-90 transition-all cursor-pointer text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <span>Pilih {findMatchingPlan(selectedPlanToUpgrade)?.name}</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
               ) : (
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setPaymentMethod(null)} className="flex-1 py-2.5 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white">Kembali</button>
