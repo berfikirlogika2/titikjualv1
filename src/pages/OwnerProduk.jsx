@@ -503,7 +503,7 @@ export default function OwnerProduk() {
           <span className="text-[9px] lg:text-[10px] text-[#86899B] font-bold">{filteredProduk.length} Item</span>
         </div>
 
-        {/* GRID KARTU PRODUK (TANPA SIMULASI TERJUAL) */}
+        {/* GRID KARTU PRODUK */}
         {loading ? (
           <p className="text-xs text-center text-[#86899B] py-8">Memuat katalog produk...</p>
         ) : filteredProduk.length === 0 ? (
@@ -559,9 +559,11 @@ export default function OwnerProduk() {
 
                   {produk.pakaiVarian && produk.varian && produk.varian.length > 0 && (
                     <div className="bg-[#F1F2F6]/70 p-2 rounded-lg flex flex-col gap-1 text-[10px]">
-                      <span className="text-[7px] font-bold uppercase text-slate-400">Varian ({produk.varian.length}):</span>
+                      <span className="text-[7px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                        <Layers size={9} /> Varian ({produk.varian.length}):
+                      </span>
                       {produk.varian.map((v, i) => (
-                        <div key={i} className="flex justify-between items-center text-[10px]">
+                        <div key={i} className="flex justify-between items-center bg-white px-2 py-1 rounded border border-[#E9EBED] text-[10px]">
                           <span className="font-bold text-slate-800 truncate max-w-[80px]">{v.nama}</span>
                           <span className="font-bold text-[#01a684]">Rp {formatRupiah(v.hargaJual)}</span>
                         </div>
@@ -657,15 +659,21 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL TAMBAH / EDIT PRODUK (DENGAN PADDING BAWAH AGAR TOMBOL SIMPAN TIDAK TERTUTUP) */}
+      {/* MODAL TAMBAH / EDIT PRODUK DENGAN LAYOUT FLEX & FOOTER STATIS (ANTI-NABRAK) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 text-xs max-h-[90vh] overflow-y-auto border border-[#E9EBED] relative pb-28 lg:pb-6">
-            <div className="flex justify-between items-center border-b border-[#E9EBED] pb-2">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-[#181b2b]">{isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-[#86899B]"><X size={18} /></button>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col h-[85vh] max-h-[750px] border border-[#E9EBED] overflow-hidden">
+            
+            {/* Header Modal (Tetap di atas) */}
+            <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">
+                {isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] cursor-pointer"><X size={18} /></button>
             </div>
-            <form onSubmit={handleSaveProduk} className="flex flex-col gap-3">
+
+            {/* Form Body (Dapat di-scroll secara mandiri) */}
+            <form onSubmit={handleSaveProduk} className="flex flex-col flex-1 overflow-y-auto p-4 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#181b2b]">Nama Menu Produk</label>
                 <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" required />
@@ -854,12 +862,16 @@ export default function OwnerProduk() {
                 </div>
               )}
 
-              {/* TOMBOL AKSI FIXED DI BAGIAN BAWAH MODAL AGAR TIDAK TERTUTUP */}
-              <div className="flex gap-2 mt-4 pt-2 border-t border-[#E9EBED] bg-white sticky bottom-0">
+              {/* Spacer agar konten paling bawah tidak tertutup footer */}
+              <div className="h-4 shrink-0" />
+
+              {/* Footer Tombol Aksi (Sticky di bawah form body secara rapi) */}
+              <div className="flex gap-2 pt-3 border-t border-[#E9EBED] bg-white shrink-0 mt-auto">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : 'Simpan Menu'}</button>
               </div>
             </form>
+
           </div>
         </div>
       )}
