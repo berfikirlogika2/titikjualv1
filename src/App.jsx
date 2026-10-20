@@ -2,14 +2,16 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // ==================== HALAMAN UTAMA & AUTH ====================
 import SplashScreen from './pages/SplashScreen';
-import Login from './pages/Login';               
-import LoginForm from './pages/LoginForm';       
-import Register from './pages/Register';        
+import Login from './pages/Login';              
+import LoginForm from './pages/Loginform';      
+import Register from './pages/Register';       
 import RegisterOTP from './pages/RegisterOTP';   
 import RegisterPlan from './pages/RegisterPlan';      
 import RegisterPayment from './pages/RegisterPayment'; 
 import RegisterSuccess from './pages/RegisterSuccess'; 
 import TermsAndConditions from './pages/TermsAndConditions'; 
+import ResetPassword from './pages/ResetPassword';
+import ResetPasswordSuccess from './pages/ResetPasswordSuccess';
 
 // ==================== MODUL KASIR (CASHIER) ====================
 import CashierDashboard from './pages/CashierDashboard'; 
@@ -18,8 +20,9 @@ import CashierDiskon from './pages/CashierDiskon';
 import CashierStok from './pages/CashierStok';
 import CashierPengaturan from './pages/CashierPengaturan';
 
-// ==================== MODUL ADMIN ====================
+// ==================== MODUL ADMIN & SUPERADMIN ====================
 import AdminDashboard from './pages/AdminDashboard';        
+import SuperadminDashboardPage from './pages/SuperadminDashboardPage';
 
 // ==================== MODUL OWNER ====================
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
@@ -49,17 +52,19 @@ function App() {
         <Route path="/register-plan" element={<RegisterPlan />} />
         <Route path="/register-payment" element={<RegisterPayment />} />
         <Route path="/register-success" element={<RegisterSuccess />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password-success" element={<ResetPasswordSuccess />} />
         
         {/* ==================== 2. MODUL KASIR ==================== */}
         <Route path="/kasir" element={<CashierDashboard />} />
-        <Route path="/cashier-dashboard" element={<CashierDashboard />} /> 
         <Route path="/kasir/transaksi" element={<CashierTransaksi />} />
         <Route path="/kasir/diskon" element={<CashierDiskon />} />
         <Route path="/kasir/stok" element={<CashierStok />} />
         <Route path="/kasir/pengaturan" element={<CashierPengaturan />} />
 
-        {/* ==================== 3. MODUL ADMIN ==================== */}
+        {/* ==================== 3. MODUL ADMIN & SUPERADMIN ==================== */}
         <Route path="/admin-dashboard" element={<AdminDashboard />} />    
+        <Route path="/superadmin-dashboard" element={<SuperadminDashboardPage />} />    
 
         {/* ==================== 4. MODUL OWNER ==================== */}
         <Route path="/owner-dashboard" element={<OwnerDashboardPage />} />

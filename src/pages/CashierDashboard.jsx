@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -17,19 +17,34 @@ export default function CashierDashboard() {
   const [actualCashInput, setActualCashInput] = useState('');
   const [activeShiftId, setActiveShiftId] = useState(null);
 
+  // Katalog Produk dari Supabase
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
+  // Keranjang & Drawer
   const [cart, setCart] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
   const [closeShiftModal, setCloseShiftModal] = useState(false);
 
-  // Helper untuk format angka dengan titik (contoh: 150000 -> 150.000)
+  // State Action Bar / Dropdown Profil
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  // Tutup dropdown jika klik di luar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const formatRupiahInput = (value) => {
     const numberString = value.replace(/[^,\d]/g, '').toString();
     const split = numberString.split(',');
@@ -49,6 +64,7 @@ export default function CashierDashboard() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
+  // Inisialisasi Sesi & Ambil Produk Murni dari Supabase berdasarkan owner_id
   useEffect(() => {
     const initCashierSession = async () => {
       setLoading(true);
@@ -59,7 +75,7 @@ export default function CashierDashboard() {
 
         if (session && session.user) {
           currentCashierName = session.user.user_metadata?.full_name || session.user.email || 'Kasir';
-          currentOwnerId = session.user.user_metadata?.owner_id || session.user.id;
+          currentOwnerId = session.user.user_metadata?.owner_id || localStorage.getItem('owner_id') || session.user.id;
           setCashierName(currentCashierName);
           setOwnerId(currentOwnerId);
         } else {
@@ -67,7 +83,7 @@ export default function CashierDashboard() {
           setOwnerId(currentOwnerId);
         }
 
-        // Cek shift aktif di Supabase
+        // 1. Cek Shift Aktif di Supabase
         const { data: shiftData } = await supabase
           .from('shifts')
           .select('*')
@@ -81,32 +97,31 @@ export default function CashierDashboard() {
           setActiveShiftId(shiftData.id);
           setModalShift(false);
         } else {
-          setModalShift(true); // Wajib open shift saat login pertama kali
+          setModalShift(true); // Wajib open shift sekali saat masuk
         }
 
-        // Ambil produk
-        const { data: prodData } = await supabase
+        // 2. Ambil Produk dari tabel `products` Supabase berdasarkan owner_id
+        const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
           .eq('owner_id', currentOwnerId);
 
+        if (prodError) throw prodError;
+
         if (prodData && prodData.length > 0) {
           setProducts(prodData.map((item, idx) => ({
             id: item.id || idx,
-            name: item.name || item.nama_produk || 'Produk',
-            category: item.category || item.kategori || 'Minuman',
+            name: item.name || item.nama_produk || 'Produk Tanpa Nama',
+            category: item.category || item.kategori || 'Umum',
             price: Number(item.price || item.harga_jual || 0),
             stock: Number(item.stock || item.stok || 10),
             image: item.image_url || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
           })));
         } else {
-          setProducts([
-            { id: 1, name: 'Kopi Susu Gula Aren', price: 25000, category: 'Minuman', stock: 45, image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=300' },
-            { id: 2, name: 'Croissant Butter', price: 22000, category: 'Makanan', stock: 3, image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=300' }
-          ]);
+          setProducts([]);
         }
       } catch (err) {
-        console.error('Error init:', err.message);
+        console.error('Gagal memuat data kasir:', err.message);
       } finally {
         setLoading(false);
       }
@@ -118,7 +133,7 @@ export default function CashierDashboard() {
   const handleOpenShift = async (e) => {
     e.preventDefault();
     const rawCash = parseRupiahNumber(initialCashInput);
-    if (rawCash <= 0) {
+    if (rawCash < 0) {
       alert('Masukkan modal awal yang valid.');
       return;
     }
@@ -132,7 +147,7 @@ export default function CashierDashboard() {
             cashier_name: cashierName,
             initial_cash: rawCash,
             status: 'open',
-            opened_at: new Date().toISOString() // Tercatat tanggal & jam open shift
+            opened_at: new Date().toISOString()
           }
         ])
         .select()
@@ -159,15 +174,16 @@ export default function CashierDashboard() {
           .update({
             actual_cash: rawActual,
             status: 'closed',
-            closed_at: new Date().toISOString() // Tercatat tanggal & jam close shift
+            closed_at: new Date().toISOString()
           })
           .eq('id', activeShiftId);
       }
 
       setIsShiftOpen(false);
       setCloseShiftModal(false);
+      setIsProfileMenuOpen(false);
       setModalShift(true);
-      alert('Shift berhasil ditutup dengan sukses.');
+      alert('Shift berhasil ditutup.');
     } catch (err) {
       console.error('Gagal close shift:', err.message);
     }
@@ -217,7 +233,7 @@ export default function CashierDashboard() {
           actor_name: cashierName,
           type: 'Masuk',
           total_amount: subtotal,
-          payment_method: paymentMethod,
+          payment_method: 'Tunai',
           payment_status: 'success'
         }
       ]);
@@ -234,7 +250,7 @@ export default function CashierDashboard() {
   return (
     <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] lg:pb-12 lg:pl-24 lg:pr-96">
       
-      {/* MODAL OPEN SHIFT (Hanya muncul sekali saat login/buka sesi) */}
+      {/* MODAL OPEN SHIFT */}
       {modalShift && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center">
@@ -266,12 +282,12 @@ export default function CashierDashboard() {
         </div>
       )}
 
-      {/* MODAL CLOSE SHIFT (Peringatan saat mau keluar/logout) */}
+      {/* MODAL CLOSE SHIFT */}
       {closeShiftModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center">
             <h2 className="text-lg font-bold mb-1 text-red-600">Tutup Shift (Close Shift)</h2>
-            <p className="text-xs text-gray-500 mb-4">Harap hitung dan masukkan total uang aktual di laci Anda.</p>
+            <p className="text-xs text-gray-500 mb-4">Masukkan total uang aktual di laci saat ini.</p>
             <div className="space-y-4 text-left">
               <div className="relative">
                 <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
@@ -302,7 +318,7 @@ export default function CashierDashboard() {
         </div>
       )}
 
-      {/* HEADER */}
+      {/* STICKY HEADER */}
       <header className="sticky top-0 backdrop-blur-xl z-40 bg-[#F1F2F6]/95 pt-4 pb-3 px-6 border-b border-gray-200/60 shadow-xs">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
@@ -314,14 +330,37 @@ export default function CashierDashboard() {
               <span className="text-[10px] bg-[#E6F6F3] text-[#01A684] px-2 py-0.5 rounded-full font-semibold">Shift Aktif</span>
             </div>
           </div>
-          <button
-            onClick={() => setCloseShiftModal(true)}
-            className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors cursor-pointer border-0"
-            title="Wajib Close Shift"
-          >
-            <LogOut size={14} />
-            <span>Close Shift</span>
-          </button>
+
+          {/* ACTION BAR PROFIL (Klik Foto Profil untuk Close Shift) */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer focus:outline-none hover:border-[#01A684] transition-colors bg-white flex items-center justify-center"
+              title="Menu Profil"
+            >
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" alt="Profil" className="w-full h-full object-cover" />
+            </button>
+
+            {/* Dropdown Action Bar */}
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-xs font-bold text-[#1A1A1A]">{cashierName}</p>
+                  <p className="text-[10px] text-gray-400">Kasir Outlet</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    setCloseShiftModal(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
+                >
+                  <LogOut size={15} />
+                  <span>Close Shift (Tutup Shift)</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="relative mb-3">
@@ -353,7 +392,9 @@ export default function CashierDashboard() {
       {/* PRODUCT GRID */}
       <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 px-6 pt-4">
         {loading ? (
-          <p className="text-center text-xs text-gray-500 py-12">Memuat produk...</p>
+          <p className="text-center text-xs text-gray-500 py-12">Memuat produk dari Supabase...</p>
+        ) : filteredProducts.length === 0 ? (
+          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang dibuat oleh Owner.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3">
             {filteredProducts.map((p) => (

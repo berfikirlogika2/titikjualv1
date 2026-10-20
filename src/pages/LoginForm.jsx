@@ -61,15 +61,13 @@ function LoginForm() {
         return;
       }
 
-      alert(`Login berhasil sebagai ${data.role.toUpperCase()}`);
-
       // Arahkan ke halaman berdasarkan role masing-masing secara akurat
       if (data.role === 'owner') {
         navigate('/owner-dashboard');
       } else if (data.role === 'admin') {
         navigate('/admin-dashboard');
       } else {
-        navigate('/cashier-dashboard');
+        navigate('/kasir'); // Langsung mengarah ke POS Kasir utama
       }
     } catch (err) {
       console.error('Gagal login:', err.message);
