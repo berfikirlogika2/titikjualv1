@@ -14,7 +14,8 @@ import ResetPassword from './pages/ResetPassword';
 import ResetPasswordSuccess from './pages/ResetPasswordSuccess';
 
 // ==================== MODUL KASIR (CASHIER) ====================
-import CashierDashboard from './pages/CashierDashboard'; 
+import CashierDashboard from './pages/CashierDashboard';
+import CashierPesanan from './pages/CashierPesanan';
 import CashierTransaksi from './pages/CashierTransaksi';
 import CashierDiskon from './pages/CashierDiskon';
 import CashierStok from './pages/CashierStok';
@@ -57,6 +58,7 @@ function App() {
         
         {/* ==================== 2. MODUL KASIR ==================== */}
         <Route path="/kasir" element={<CashierDashboard />} />
+        <Route path="/kasir/pesanan" element={<CashierPesanan />} />
         <Route path="/kasir/transaksi" element={<CashierTransaksi />} />
         <Route path="/kasir/diskon" element={<CashierDiskon />} />
         <Route path="/kasir/stok" element={<CashierStok />} />

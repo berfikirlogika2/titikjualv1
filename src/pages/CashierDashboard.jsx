@@ -26,11 +26,9 @@ export default function CashierDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  // Keranjang & Drawer
+  // Keranjang & Drawer Mobile
   const [cart, setCart] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successModal, setSuccessModal] = useState(false);
   const [closeShiftModal, setCloseShiftModal] = useState(false);
 
   // State Action Bar / Dropdown Menu Shift (Garis Tiga)
@@ -67,7 +65,7 @@ export default function CashierDashboard() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
-  // Inisialisasi Sesi & Ambil Produk Murni dari Supabase berdasarkan owner_id
+  // Inisialisasi Sesi & Cek Shift Aktif Supabase
   useEffect(() => {
     const initCashierSession = async () => {
       setLoading(true);
@@ -93,7 +91,7 @@ export default function CashierDashboard() {
           : nameParts[0].substring(0, 2).toUpperCase();
         setInitials(calculatedInitials);
 
-        // 1. Cek Shift Aktif di Supabase
+        // 1. Cek Shift Aktif di Supabase (status 'open')
         const { data: shiftData } = await supabase
           .from('shifts')
           .select('*')
@@ -105,20 +103,22 @@ export default function CashierDashboard() {
         if (shiftData) {
           setIsShiftOpen(true);
           setActiveShiftId(shiftData.id);
-          setModalShift(false);
+          setModalShift(false); // Jangan munculkan modal jika sudah open shift
         } else {
-          setModalShift(true); // Wajib open shift sekali saat masuk
+          setIsShiftOpen(false);
+          setModalShift(true); // Wajib open shift jika belum ada yang aktif
         }
 
-        // 2. Ambil Produk dari tabel `products` Supabase berdasarkan owner_id
+        // 2. Ambil Produk dari Supabase
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
           .eq('owner_id', currentOwnerId);
 
-        if (prodError) throw prodError;
-
-        if (prodData && prodData.length > 0) {
+        if (prodError) {
+          const { data: prodIndo } = await supabase.from('produk').select('*');
+          if (prodIndo) setProducts(prodIndo);
+        } else if (prodData) {
           setProducts(prodData.map((item, idx) => ({
             id: item.id || idx,
             name: item.name || item.nama_produk || 'Produk Tanpa Nama',
@@ -127,11 +127,9 @@ export default function CashierDashboard() {
             stock: Number(item.stock || item.stok || 10),
             image: item.image_url || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
           })));
-        } else {
-          setProducts([]);
         }
       } catch (err) {
-        console.error('Gagal memuat data kasir:', err.message);
+        console.error('Gagal memuat sesi kasir:', err.message);
       } finally {
         setLoading(false);
       }
@@ -168,6 +166,7 @@ export default function CashierDashboard() {
 
       setIsShiftOpen(true);
       setModalShift(false);
+      setInitialCashInput('');
     } catch (err) {
       console.error('Gagal open shift:', err.message);
       setIsShiftOpen(true);
@@ -190,13 +189,24 @@ export default function CashierDashboard() {
       }
 
       setIsShiftOpen(false);
+      setActiveShiftId(null);
       setCloseShiftModal(false);
       setIsProfileMenuOpen(false);
-      setModalShift(true);
+      setModalShift(true); // Paksa isi open shift baru jika ingin lanjut
+      setActualCashInput('');
       alert('Shift berhasil ditutup.');
     } catch (err) {
       console.error('Gagal close shift:', err.message);
     }
+  };
+
+  const handleOpenShiftMenuClick = () => {
+    if (isShiftOpen) {
+      alert('Kamu sudah memasukan modal awal uang di laci kasir');
+    } else {
+      setModalShift(true);
+    }
+    setIsProfileMenuOpen(false);
   };
 
   const addToCart = (product) => {
@@ -231,36 +241,16 @@ export default function CashierDashboard() {
 
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
 
-  const handleCheckout = async () => {
+  // Lanjut ke halaman pembayaran CashierPesanan dengan membawa data cart
+  const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
-    setIsSubmitting(true);
-    try {
-      const orderId = `CS-TRX-${Math.floor(100000 + Math.random() * 900000)}`;
-      await supabase.from('transactions').insert([
-        {
-          order_id: orderId,
-          owner_id: ownerId,
-          actor_name: cashierName,
-          type: 'Masuk',
-          total_amount: subtotal,
-          payment_method: 'Tunai',
-          payment_status: 'success'
-        }
-      ]);
-      setSuccessModal(true);
-      setCart([]);
-    } catch (err) {
-      setSuccessModal(true);
-      setCart([]);
-    } finally {
-      setIsSubmitting(false);
-    }
+    navigate('/kasir/pesanan', { state: { cart, subtotal } });
   };
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] lg:pb-12 lg:pl-24 lg:pr-96">
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] md:pb-12 lg:pr-80">
       
-      {/* MODAL OPEN SHIFT */}
+      {/* MODAL OPEN SHIFT (Terkunci jika sudah aktif) */}
       {modalShift && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center">
@@ -268,7 +258,7 @@ export default function CashierDashboard() {
               <CheckCircle2 size={24} />
             </div>
             <h2 className="text-lg font-bold mb-1">Buka Shift Kasir (Open Shift)</h2>
-            <p className="text-xs text-gray-500 mb-4">Masukkan modal awal di laci kasir.</p>
+            <p className="text-xs text-gray-500 mb-4">Wajib masukkan modal awal di laci kasir untuk mulai bertransaksi.</p>
             <form onSubmit={handleOpenShift} className="space-y-4">
               <div className="relative">
                 <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
@@ -328,11 +318,11 @@ export default function CashierDashboard() {
         </div>
       )}
 
-      {/* STICKY HEADER - SINGLE PROFILE & HAMBURGER SHIFT MENU */}
+      {/* STICKY HEADER */}
       <header className="sticky top-0 backdrop-blur-xl z-40 bg-[#F1F2F6]/95 pt-4 pb-3 px-6 border-b border-gray-200/60 shadow-xs">
         <div className="flex items-center justify-between mb-3">
           
-          {/* Identitas Kasir Tunggal (Foto / Inisial Huruf Otomatis) */}
+          {/* Identitas Kasir Tunggal */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200 bg-[#01A684] flex items-center justify-center font-bold text-white text-xs shadow-sm">
               {initials}
@@ -363,10 +353,7 @@ export default function CashierDashboard() {
                   <p className="text-[10px] text-gray-400">Manajemen Shift Kasir</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    setModalShift(true);
-                  }}
+                  onClick={handleOpenShiftMenuClick}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-[#01A684] hover:bg-emerald-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
                 >
                   <CheckCircle2 size={15} />
@@ -415,14 +402,14 @@ export default function CashierDashboard() {
         </div>
       </header>
 
-      {/* PRODUCT GRID DARI SUPABASE */}
-      <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 px-6 pt-4">
+      {/* PRODUCT GRID */}
+      <main className="w-full max-w-md mx-auto md:max-w-full md:px-8 px-6 pt-4">
         {loading ? (
           <p className="text-center text-xs text-gray-500 py-12">Memuat produk dari Supabase...</p>
         ) : filteredProducts.length === 0 ? (
           <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang tersedia di database Supabase.</p>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {filteredProducts.map((p) => (
               <div
                 key={p.id}
@@ -430,7 +417,7 @@ export default function CashierDashboard() {
                 className="bg-white rounded-2xl p-2.5 border border-gray-100 shadow-xs flex flex-col justify-between cursor-pointer hover:border-[#01A684]"
               >
                 <div>
-                  <div className="w-full h-20 rounded-xl overflow-hidden mb-2 bg-gray-100">
+                  <div className="w-full h-24 rounded-xl overflow-hidden mb-2 bg-gray-100">
                     <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                   </div>
                   <h3 className="text-xs font-semibold text-[#1A1A1A] line-clamp-2 leading-tight mb-1">{p.name}</h3>
@@ -445,7 +432,7 @@ export default function CashierDashboard() {
         )}
       </main>
 
-      {/* MOBILE PESANAN */}
+      {/* MOBILE PESANAN (DRAWER) */}
       <div className="md:hidden fixed bottom-[72px] left-4 right-4 bg-[#1A1A1A] text-white rounded-2xl p-4 shadow-xl z-40">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsDrawerOpen(!isDrawerOpen)}>
           <div className="flex items-center gap-2">
@@ -479,8 +466,7 @@ export default function CashierDashboard() {
             ))}
             {cart.length > 0 && (
               <button
-                onClick={handleCheckout}
-                disabled={isSubmitting}
+                onClick={handleProceedToCheckout}
                 className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-bold mt-2 cursor-pointer border-0"
               >
                 Bayar Sekarang (Rp {formatRp(subtotal)})
@@ -490,59 +476,49 @@ export default function CashierDashboard() {
         )}
       </div>
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:block fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 overflow-y-auto shadow-sm">
-        <h2 className="text-base font-bold mb-4 flex items-center gap-2">
-          <ShoppingBag size={18} className="text-[#01A684]" /> Pesanan Saat Ini
-        </h2>
-        
-        <div className="space-y-3 mb-6">
-          {cart.map((item) => (
-            <div key={item.id} className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <div className="flex-1 pr-2">
-                <p className="text-xs font-bold text-[#1A1A1A] line-clamp-1">{item.name}</p>
-                <p className="text-[11px] text-[#01A684] font-semibold">Rp {formatRp(item.price * item.qty)}</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">-</button>
-                <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
-                <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">+</button>
-              </div>
-            </div>
-          ))}
+      {/* TABLET & DESKTOP SIDEBAR (PESANAN DI ATAS, TOTAL & TOMBOL DI KANAN BAWAH) */}
+      <aside className="hidden md:flex fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 flex-col justify-between shadow-sm">
+        <div>
+          <h2 className="text-base font-bold mb-4 flex items-center gap-2">
+            <ShoppingBag size={18} className="text-[#01A684]" /> Pesanan Saat Ini
+          </h2>
+          
+          <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            {cart.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-12">Belum ada item pesanan.</p>
+            ) : (
+              cart.map((item) => (
+                <div key={item.id} className="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div className="flex-1 pr-2">
+                    <p className="text-xs font-bold text-[#1A1A1A] line-clamp-1">{item.name}</p>
+                    <p className="text-[11px] text-[#01A684] font-semibold">Rp {formatRp(item.price * item.qty)}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">-</button>
+                    <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                    <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">+</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-4 space-y-2">
+        {/* Total Pembayaran & Tombol Proses Pembayaran di Kanan Bawah */}
+        <div className="border-t border-gray-100 pt-4 space-y-3 bg-white">
           <div className="flex justify-between text-sm font-bold">
             <span>Total Pembayaran</span>
             <span className="text-[#01A684]">Rp {formatRp(subtotal)}</span>
           </div>
           <button
-            disabled={cart.length === 0 || isSubmitting}
-            onClick={handleCheckout}
+            disabled={cart.length === 0}
+            onClick={handleProceedToCheckout}
             className={`w-full py-3 rounded-xl text-xs font-bold text-white border-0 cursor-pointer ${cart.length > 0 ? 'bg-[#01A684]' : 'bg-gray-300'}`}
           >
             Proses Pembayaran
           </button>
         </div>
       </aside>
-
-      {successModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-xs rounded-3xl shadow-2xl p-6 flex flex-col items-center text-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 text-[#01A684] flex items-center justify-center">
-              <CheckCircle2 size={36} />
-            </div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1A1A1A]">Transaksi Berhasil!</h3>
-            <button 
-              onClick={() => setSuccessModal(false)}
-              className="w-full py-3 bg-[#01A684] text-white text-xs font-bold rounded-xl cursor-pointer border-0"
-            >
-              Transaksi Baru
-            </button>
-          </div>
-        </div>
-      )}
 
       <CashierBottomNav />
 
