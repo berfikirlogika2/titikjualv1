@@ -2,8 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // ==================== HALAMAN UTAMA & AUTH ====================
 import SplashScreen from './pages/SplashScreen';
-import Login from './pages/Login';              
-import LoginForm from './pages/FormLogin';      
+import Login from './pages/Login';               
+import LoginForm from './pages/LoginForm';      
 import Register from './pages/Register';       
 import RegisterOTP from './pages/RegisterOTP';   
 import RegisterPlan from './pages/RegisterPlan';      
@@ -29,8 +29,8 @@ import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import OwnerLaporan from './pages/OwnerLaporan';
 import OwnerSemuaTransaksi from './pages/OwnerSemuaTransaksi'; 
 import OwnerStaf from './pages/OwnerStaf';
-import OwnerStafDetail from './pages/OwnerStafDetail';       
-import OwnerRegisterStaff from './pages/OwnerRegisterStaff'; 
+import OwnerStafDetail from './pages/OwnerStafDetail';      
+import OwnerRegisterStaff from './pages/OwnerRegisterStaff';    
 import OwnerRegisterAkun from './pages/OwnerRegisterAkun';   
 import OwnerBahan from './pages/OwnerBahan';
 import OwnerPajak from './pages/OwnerPajak';
