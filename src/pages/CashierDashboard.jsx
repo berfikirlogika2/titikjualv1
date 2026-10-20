@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2 } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -11,6 +11,9 @@ export default function CashierDashboard() {
   const [ownerId, setOwnerId] = useState('');
   const [isShiftOpen, setIsShiftOpen] = useState(false);
   const [modalShift, setModalShift] = useState(false);
+  
+  // Inisial huruf otomatis dari nama kasir
+  const [initials, setInitials] = useState('DL');
   
   // Input dengan format string titik
   const [initialCashInput, setInitialCashInput] = useState('');
@@ -30,7 +33,7 @@ export default function CashierDashboard() {
   const [successModal, setSuccessModal] = useState(false);
   const [closeShiftModal, setCloseShiftModal] = useState(false);
 
-  // State Action Bar / Dropdown Profil
+  // State Action Bar / Dropdown Menu Shift (Garis Tiga)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
 
@@ -82,6 +85,13 @@ export default function CashierDashboard() {
           currentOwnerId = localStorage.getItem('owner_id') || 'toko_123';
           setOwnerId(currentOwnerId);
         }
+
+        // Buat inisial huruf otomatis dari nama kasir
+        const nameParts = currentCashierName.split(' ');
+        const calculatedInitials = nameParts.length > 1 
+          ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase() 
+          : nameParts[0].substring(0, 2).toUpperCase();
+        setInitials(calculatedInitials);
 
         // 1. Cek Shift Aktif di Supabase
         const { data: shiftData } = await supabase
@@ -318,36 +328,50 @@ export default function CashierDashboard() {
         </div>
       )}
 
-      {/* STICKY HEADER */}
+      {/* STICKY HEADER - SINGLE PROFILE & HAMBURGER SHIFT MENU */}
       <header className="sticky top-0 backdrop-blur-xl z-40 bg-[#F1F2F6]/95 pt-4 pb-3 px-6 border-b border-gray-200/60 shadow-xs">
         <div className="flex items-center justify-between mb-3">
+          
+          {/* Identitas Kasir Tunggal (Foto / Inisial Huruf Otomatis) */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
-              DL
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200 bg-[#01A684] flex items-center justify-center font-bold text-white text-xs shadow-sm">
+              {initials}
             </div>
             <div>
               <h1 className="text-sm font-bold text-[#1A1A1A]">{cashierName}</h1>
-              <span className="text-[10px] bg-[#E6F6F3] text-[#01A684] px-2 py-0.5 rounded-full font-semibold">Shift Aktif</span>
+              <span className="text-[10px] bg-[#E6F6F3] text-[#01A684] px-2 py-0.5 rounded-full font-semibold">
+                {isShiftOpen ? 'Shift Aktif' : 'Shift Nonaktif'}
+              </span>
             </div>
           </div>
 
-          {/* ACTION BAR PROFIL (Klik Foto Profil untuk Close Shift) */}
+          {/* Tombol Garis Tiga (Hamburger Menu) untuk Open / Close Shift */}
           <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer focus:outline-none hover:border-[#01A684] transition-colors bg-white flex items-center justify-center"
-              title="Menu Profil"
+              className="w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm cursor-pointer flex items-center justify-center text-gray-700 hover:border-[#01A684] transition-all"
+              title="Menu Shift"
             >
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" alt="Profil" className="w-full h-full object-cover" />
+              <Menu size={20} />
             </button>
 
-            {/* Dropdown Action Bar */}
+            {/* Dropdown Menu Shift */}
             {isProfileMenuOpen && (
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-4 py-2 border-b border-gray-100">
                   <p className="text-xs font-bold text-[#1A1A1A]">{cashierName}</p>
-                  <p className="text-[10px] text-gray-400">Kasir Outlet</p>
+                  <p className="text-[10px] text-gray-400">Manajemen Shift Kasir</p>
                 </div>
+                <button
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    setModalShift(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-[#01A684] hover:bg-emerald-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>Open Shift (Buka Shift)</span>
+                </button>
                 <button
                   onClick={() => {
                     setIsProfileMenuOpen(false);
@@ -363,6 +387,7 @@ export default function CashierDashboard() {
           </div>
         </div>
 
+        {/* SEARCH BAR */}
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
           <input
@@ -374,6 +399,7 @@ export default function CashierDashboard() {
           />
         </div>
 
+        {/* KATEGORI */}
         <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
           {['Semua', 'Minuman', 'Makanan', 'Snack'].map((cat) => (
             <button
@@ -389,12 +415,12 @@ export default function CashierDashboard() {
         </div>
       </header>
 
-      {/* PRODUCT GRID */}
+      {/* PRODUCT GRID DARI SUPABASE */}
       <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 px-6 pt-4">
         {loading ? (
           <p className="text-center text-xs text-gray-500 py-12">Memuat produk dari Supabase...</p>
         ) : filteredProducts.length === 0 ? (
-          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang dibuat oleh Owner.</p>
+          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang tersedia di database Supabase.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3">
             {filteredProducts.map((p) => (
