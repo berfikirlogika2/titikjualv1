@@ -65,7 +65,7 @@ export default function CashierDashboard() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
-  // Inisialisasi Sesi & Cek Shift Aktif Supabase
+  // Inisialisasi Sesi & Cek Shift Aktif Supabase + localStorage
   useEffect(() => {
     const initCashierSession = async () => {
       setLoading(true);
@@ -91,25 +91,37 @@ export default function CashierDashboard() {
           : nameParts[0].substring(0, 2).toUpperCase();
         setInitials(calculatedInitials);
 
-        // 1. Cek Shift Aktif di Supabase (status 'open')
-        const { data: shiftData } = await supabase
-          .from('shifts')
-          .select('*')
-          .eq('owner_id', currentOwnerId)
-          .eq('cashier_name', currentCashierName)
-          .eq('status', 'open')
-          .maybeSingle();
+        // Cek status shift lokal terlebih dahulu agar tidak bolak-balik fetch saat pindah halaman menu kasir
+        const localShiftStatus = localStorage.getItem(`shift_active_${currentCashierName}`);
+        const localShiftId = localStorage.getItem(`active_shift_id`);
 
-        if (shiftData) {
+        if (localShiftStatus === 'true' && localShiftId) {
           setIsShiftOpen(true);
-          setActiveShiftId(shiftData.id);
-          setModalShift(false); // Jangan munculkan modal jika sudah open shift
+          setActiveShiftId(localShiftId);
+          setModalShift(false);
         } else {
-          setIsShiftOpen(false);
-          setModalShift(true); // Wajib open shift jika belum ada yang aktif
+          // Cek ke Database Supabase
+          const { data: shiftData } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('owner_id', currentOwnerId)
+            .eq('cashier_name', currentCashierName)
+            .eq('status', 'open')
+            .maybeSingle();
+
+          if (shiftData) {
+            setIsShiftOpen(true);
+            setActiveShiftId(shiftData.id);
+            setModalShift(false);
+            localStorage.setItem(`shift_active_${currentCashierName}`, 'true');
+            localStorage.setItem(`active_shift_id`, shiftData.id);
+          } else {
+            setIsShiftOpen(false);
+            setModalShift(true); // Wajib open shift
+          }
         }
 
-        // 2. Ambil Produk dari Supabase
+        // Ambil Produk dari Supabase
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
@@ -154,18 +166,22 @@ export default function CashierDashboard() {
             owner_id: ownerId,
             cashier_name: cashierName,
             initial_cash: rawCash,
-            status: 'open',
-            opened_at: new Date().toISOString()
+            status: 'open'
           }
         ])
         .select()
         .single();
 
       if (error) throw error;
-      if (data) setActiveShiftId(data.id);
+      
+      if (data) {
+        setActiveShiftId(data.id);
+        localStorage.setItem(`active_shift_id`, data.id);
+      }
 
       setIsShiftOpen(true);
       setModalShift(false);
+      localStorage.setItem(`shift_active_${cashierName}`, 'true');
       setInitialCashInput('');
     } catch (err) {
       console.error('Gagal open shift:', err.message);
@@ -192,7 +208,11 @@ export default function CashierDashboard() {
       setActiveShiftId(null);
       setCloseShiftModal(false);
       setIsProfileMenuOpen(false);
-      setModalShift(true); // Paksa isi open shift baru jika ingin lanjut
+      
+      localStorage.removeItem(`shift_active_${cashierName}`);
+      localStorage.removeItem(`active_shift_id`);
+      
+      setModalShift(true);
       setActualCashInput('');
       alert('Shift berhasil ditutup.');
     } catch (err) {
@@ -241,7 +261,6 @@ export default function CashierDashboard() {
 
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
 
-  // Lanjut ke halaman pembayaran CashierPesanan dengan membawa data cart
   const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
     navigate('/kasir/pesanan', { state: { cart, subtotal } });
