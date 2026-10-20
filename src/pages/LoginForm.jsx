@@ -61,15 +61,13 @@ function LoginForm() {
         return;
       }
 
-      alert(`Login berhasil sebagai ${data.role.toUpperCase()}`);
-
-      // Arahkan ke halaman berdasarkan role masing-masing secara akurat
+      // Langsung arahkan ke halaman berdasarkan role masing-masing secara akurat (Tanpa string teks aneh)
       if (data.role === 'owner') {
         navigate('/owner-dashboard');
       } else if (data.role === 'admin') {
         navigate('/admin-dashboard');
       } else {
-        navigate('/cashier-dashboard');
+        navigate('/kasir'); // Mengarah ke CashierDashboard
       }
     } catch (err) {
       console.error('Gagal login:', err.message);
