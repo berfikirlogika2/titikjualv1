@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 // ==================== HALAMAN UTAMA & AUTH ====================
 import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';              
-import LoginForm from './pages/Loginform';      
+import LoginForm from './pages/Formlogin';      
 import Register from './pages/Register';       
 import RegisterOTP from './pages/RegisterOTP';   
 import RegisterPlan from './pages/RegisterPlan';      
