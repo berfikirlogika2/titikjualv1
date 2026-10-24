@@ -27,6 +27,44 @@ const parseRupiah = (str) => {
   return parseInt(str.toString().replace(/\./g, ''), 10) || 0;
 };
 
+// Fungsi kompresi gambar agar super ringan & tidak membebani server
+const compressImage = (file, callback) => {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = (event) => {
+    const img = new Image();
+    img.src = event.target.result;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 300;
+      const MAX_HEIGHT = 300;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Kompres ke JPEG dengan kualitas 0.6 agar sangat ringan
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      callback(dataUrl);
+    };
+  };
+};
+
 export default function OwnerProduk() {
   const navigate = useNavigate();
 
@@ -88,7 +126,8 @@ export default function OwnerProduk() {
           terjual: Number(item.terjual || 0),
           pakaiVarian: Boolean(item.pakai_varian),
           varian: item.varian || [],
-          resep: item.resep || []
+          resep: item.resep || [],
+          foto: item.image_url || item.foto || ''
         })));
       }
     } catch (err) {
@@ -130,6 +169,7 @@ export default function OwnerProduk() {
   const [selectedResep, setSelectedResep] = useState([{ bahanId: '', qty: '' }]);
   const [formHpp, setFormHpp] = useState('');
   const [formHargaJual, setFormHargaJual] = useState('');
+  const [formFoto, setFormFoto] = useState('');
   const [formPakaiVarian, setFormPakaiVarian] = useState(false);
   
   const [formVarianList, setFormVarianList] = useState([
@@ -212,6 +252,7 @@ export default function OwnerProduk() {
     setSelectedResep([{ bahanId: '', qty: '' }]);
     setFormHpp('');
     setFormHargaJual('');
+    setFormFoto('');
     setFormPakaiVarian(false);
     setFormVarianList([{ id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }]);
     setIsModalOpen(true);
@@ -229,6 +270,7 @@ export default function OwnerProduk() {
     setSelectedResep(produk.resep && produk.resep.length > 0 ? produk.resep.map(r => ({ bahanId: r.bahanId, qty: r.qty })) : [{ bahanId: '', qty: '' }]);
     setFormHpp(produk.hpp ? formatRupiah(produk.hpp) : '');
     setFormHargaJual(produk.hargaJual ? formatRupiah(produk.hargaJual) : '');
+    setFormFoto(produk.foto || '');
     setFormPakaiVarian(produk.pakaiVarian || false);
     setFormVarianList(produk.varian && produk.varian.length > 0 ? produk.varian.map(v => ({ 
       id: v.id || Date.now() + Math.random(), 
@@ -240,21 +282,25 @@ export default function OwnerProduk() {
     setIsModalOpen(true);
   };
 
+  // Optimistic UI untuk Kategori (Tanpa Buffering / Loading Lama)
   const handleAddKategori = async (e) => {
     e.preventDefault();
     if (!formKategoriBaru.trim()) return;
-    if (daftarKategoriProduk.includes(formKategoriBaru)) {
+    const newKat = formKategoriBaru.trim();
+    if (daftarKategoriProduk.includes(newKat)) {
       alert('Kategori sudah ada!');
       return;
     }
+
+    // Update state lokal secara instan
+    setDaftarKategoriProduk([...daftarKategoriProduk, newKat]);
+    setFormKategoriBaru('');
+
     try {
       const currentOwnerId = getOwnerId();
-      const { error } = await supabase.from('product_categories').insert([{ owner_id: currentOwnerId, nama_kategori: formKategoriBaru.trim() }]);
-      if (error) throw error;
-      setDaftarKategoriProduk([...daftarKategoriProduk, formKategoriBaru.trim()]);
-      setFormKategoriBaru('');
+      await supabase.from('product_categories').insert([{ owner_id: currentOwnerId, nama_kategori: newKat }]);
     } catch (err) {
-      console.error('Gagal tambah kategori:', err.message);
+      console.error('Gagal sync kategori ke server:', err.message);
     }
   };
 
@@ -264,15 +310,16 @@ export default function OwnerProduk() {
       return;
     }
     if (window.confirm(`Hapus kategori "${katTarget}"?`)) {
+      // Update state lokal secara instan
+      setDaftarKategoriProduk(daftarKategoriProduk.filter(k => k !== katTarget));
+      if (selectedKategoriFilter === katTarget) setSelectedKategoriFilter('Semua');
+      if (formKategori === katTarget) setFormKategori(daftarKategoriProduk[0]);
+
       try {
         const currentOwnerId = getOwnerId();
-        const { error } = await supabase.from('product_categories').delete().eq('owner_id', currentOwnerId).eq('nama_kategori', katTarget);
-        if (error) throw error;
-        setDaftarKategoriProduk(daftarKategoriProduk.filter(k => k !== katTarget));
-        if (selectedKategoriFilter === katTarget) setSelectedKategoriFilter('Semua');
-        if (formKategori === katTarget) setFormKategori(daftarKategoriProduk[0]);
+        await supabase.from('product_categories').delete().eq('owner_id', currentOwnerId).eq('nama_kategori', katTarget);
       } catch (err) {
-        console.error('Gagal hapus kategori:', err.message);
+        console.error('Gagal hapus kategori di server:', err.message);
       }
     }
   };
@@ -315,7 +362,8 @@ export default function OwnerProduk() {
         harga_jual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
         pakai_varian: formPakaiVarian,
         varian: processedVarian,
-        resep: formattedResep
+        resep: formattedResep,
+        image_url: formFoto
       };
 
       if (isEditMode) {
@@ -359,7 +407,7 @@ export default function OwnerProduk() {
   return (
     <div className="bg-[#F1F2F6] min-h-screen text-[#181b2b] pb-32 lg:pb-12 font-sans antialiased relative">
       
-      {/* HEADER COMPACT & RESPONSIF (MENYESUAIKAN DENGAN PENGATURAN) */}
+      {/* HEADER COMPACT & RESPONSIF */}
       <header className="sticky top-0 z-40 bg-[#F1F2F6]/90 backdrop-blur-md border-b border-[#E9EBED]/50 px-3 lg:px-10 pt-[env(safe-area-inset-top)]">
         <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md md:max-w-3xl lg:max-w-7xl mx-auto">
           <button 
@@ -377,7 +425,7 @@ export default function OwnerProduk() {
         </div>
       </header>
 
-      {/* MAIN LAYOUT (MELUAS PENUH DI TABLET & DESKTOP SEPERTI PENGATURAN) */}
+      {/* MAIN LAYOUT */}
       <main className="p-3 lg:p-8 max-w-md md:max-w-3xl lg:max-w-7xl mx-auto flex flex-col gap-3 lg:gap-6">
 
         {/* HERO BANNER BERSIH TANPA WATERMARK */}
@@ -447,12 +495,12 @@ export default function OwnerProduk() {
           </div>
         </div>
 
-        {/* ALERT STOK MENIPIS */}
+        {/* ALERT STOK MENIPIS / LIMIT */}
         {daftarStokMenipis.length > 0 && (
           <section className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex flex-col gap-2 shadow-xs">
             <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-bold">
               <AlertCircle size={14} className="text-amber-600" />
-              <span>Perhatian: Produk Stok Menipis ({daftarStokMenipis.length})</span>
+              <span>Perhatian: Produk Stok Menipis / Limit ({daftarStokMenipis.length})</span>
             </div>
             <div className="flex flex-col gap-1">
               {daftarStokMenipis.map(p => {
@@ -517,11 +565,24 @@ export default function OwnerProduk() {
               return (
                 <div key={produk.id} className="bg-white rounded-xl border border-[#E9EBED] p-2.5 shadow-2xs flex flex-col justify-between gap-2 relative">
                   
+                  {/* Foto Produk di Kartu */}
+                  <div className="w-full h-24 rounded-lg overflow-hidden bg-slate-100 mb-1 relative">
+                    <img 
+                      src={produk.foto || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'} 
+                      alt={produk.nama} 
+                      className="w-full h-full object-cover"
+                    />
+                    {isHabis && (
+                      <span className="absolute inset-0 bg-black/50 text-white font-bold text-[10px] flex items-center justify-center uppercase tracking-widest">
+                        Stok Habis
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1 truncate">
                         <h4 className="text-[11px] font-bold text-[#181b2b] truncate">{produk.nama}</h4>
-                        {isHabis && <span className="bg-red-50 text-red-600 text-[8px] font-bold px-1 rounded shrink-0">Habis</span>}
                       </div>
                       <span className="text-[8px] text-[#86899B] bg-slate-100 px-1.5 py-0.2 rounded font-medium mt-0.5 inline-block truncate max-w-[120px]">{produk.kategori}</span>
                     </div>
@@ -616,7 +677,7 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL KELOLA KATEGORI */}
+      {/* MODAL KELOLA KATEGORI (INSTANT / TANPA BUFFERING) */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
@@ -659,12 +720,12 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL TAMBAH / EDIT PRODUK DENGAN LAYOUT FLEX & FOOTER STATIS (ANTI-NABRAK) */}
+      {/* MODAL TAMBAH / EDIT PRODUK DENGAN UPLOAD FOTO & LAYOUT FLEX ANTI-NABRAK */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col h-[85vh] max-h-[750px] border border-[#E9EBED] overflow-hidden">
             
-            {/* Header Modal (Tetap di atas) */}
+            {/* Header Modal */}
             <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
               <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">
                 {isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}
@@ -672,13 +733,43 @@ export default function OwnerProduk() {
               <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] cursor-pointer"><X size={18} /></button>
             </div>
 
-            {/* Form Body (Dapat di-scroll secara mandiri) */}
+            {/* Form Body (Scrollable) */}
             <form onSubmit={handleSaveProduk} className="flex flex-col flex-1 overflow-y-auto p-4 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#181b2b]">Nama Menu Produk</label>
                 <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" required />
               </div>
               
+              {/* Upload Foto Produk (Kamera & Galeri, Kompresi Otomatis Ringan) */}
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-[#181b2b]">Foto Produk (Tampilan POS Kasir)</label>
+                <div className="flex items-center gap-3 bg-[#F1F2F6] p-2.5 rounded-xl border border-[#E9EBED]">
+                  {formFoto ? (
+                    <img src={formFoto} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-slate-300" />
+                  ) : (
+                    <div className="w-14 h-14 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400">
+                      <Camera size={20} />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          compressImage(e.target.files[0], (compressedBase64) => {
+                            setFormFoto(compressedBase64);
+                          });
+                        }
+                      }}
+                      className="text-[10px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#01a684] file:text-white file:cursor-pointer"
+                    />
+                    <span className="text-[9px] text-slate-400">Otomatis dikompres sangat ringan & ramah server.</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">Kategori</label>
@@ -862,10 +953,9 @@ export default function OwnerProduk() {
                 </div>
               )}
 
-              {/* Spacer agar konten paling bawah tidak tertutup footer */}
               <div className="h-4 shrink-0" />
 
-              {/* Footer Tombol Aksi (Sticky di bawah form body secara rapi) */}
+              {/* Footer Tombol Aksi (Sticky di bawah form body) */}
               <div className="flex gap-2 pt-3 border-t border-[#E9EBED] bg-white shrink-0 mt-auto">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : 'Simpan Menu'}</button>
