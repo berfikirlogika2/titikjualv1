@@ -65,7 +65,7 @@ export default function CashierDashboard() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
-  // Inisialisasi Sesi & Cek Shift Aktif Supabase + localStorage
+  // Inisialisasi Sesi & Cek Shift Aktif Supabase + localStorage serta Mapping Produk yang Fleksibel
   useEffect(() => {
     const initCashierSession = async () => {
       setLoading(true);
@@ -91,7 +91,7 @@ export default function CashierDashboard() {
           : nameParts[0].substring(0, 2).toUpperCase();
         setInitials(calculatedInitials);
 
-        // Cek status shift lokal terlebih dahulu agar tidak bolak-balik fetch saat pindah halaman menu kasir
+        // Cek status shift lokal terlebih dahulu
         const localShiftStatus = localStorage.getItem(`shift_active_${currentCashierName}`);
         const localShiftId = localStorage.getItem(`active_shift_id`);
 
@@ -117,28 +117,43 @@ export default function CashierDashboard() {
             localStorage.setItem(`active_shift_id`, shiftData.id);
           } else {
             setIsShiftOpen(false);
-            setModalShift(true); // Wajib open shift
+            setModalShift(true);
           }
         }
 
-        // Ambil Produk dari Supabase
+        // Ambil Produk dari Supabase dengan Pemetaan Kolom Fleksibel (Mendukung halaman Owner)
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
           .eq('owner_id', currentOwnerId);
 
-        if (prodError) {
+        let rawProducts = prodData;
+        if (prodError || !rawProducts || rawProducts.length === 0) {
           const { data: prodIndo } = await supabase.from('produk').select('*');
-          if (prodIndo) setProducts(prodIndo);
-        } else if (prodData) {
-          setProducts(prodData.map((item, idx) => ({
-            id: item.id || idx,
-            name: item.name || item.nama_produk || 'Produk Tanpa Nama',
-            category: item.category || item.kategori || 'Umum',
-            price: Number(item.price || item.harga_jual || 0),
-            stock: Number(item.stock || item.stok || 10),
-            image: item.image_url || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
-          })));
+          if (prodIndo) rawProducts = prodIndo;
+        }
+
+        if (rawProducts && rawProducts.length > 0) {
+          setProducts(rawProducts.map((item, idx) => {
+            // Ambil harga langsung atau dari variasi/variants
+            let parsedPrice = Number(item.price || item.harga || item.harga_jual || 0);
+            if (item.variants && Array.isArray(item.variants) && item.variants.length > 0) {
+              parsedPrice = Number(item.variants[0].price || item.variants[0].harga || parsedPrice);
+            } else if (item.variasi && Array.isArray(item.variasi) && item.variasi.length > 0) {
+              parsedPrice = Number(item.variasi[0].price || item.variasi[0].harga || parsedPrice);
+            }
+
+            return {
+              id: item.id || idx,
+              name: item.name || item.nama || item.nama_produk || 'Produk Tanpa Nama',
+              category: item.category || item.kategori || item.kategori_produk || 'Semua',
+              price: parsedPrice,
+              stock: Number(item.stock || item.stok || 10),
+              image: item.image_url || item.foto || item.image || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
+            };
+          }));
+        } else {
+          setProducts([]);
         }
       } catch (err) {
         console.error('Gagal memuat sesi kasir:', err.message);
