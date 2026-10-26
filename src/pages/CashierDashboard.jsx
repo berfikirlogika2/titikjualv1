@@ -248,6 +248,10 @@ export default function CashierDashboard() {
     setIsProfileMenuOpen(false);
   };
 
+<<<<<<< HEAD
+=======
+  // Tangani klik produk (jika punya varian, buka modal; jika tidak, langsung masuk keranjang)
+>>>>>>> d57195eec142e7de8dcd6a81ce42cd47a79aa449
   const handleProductClick = (product) => {
     if (product.variants && product.variants.length > 0) {
       setVariantModalProduct(product);
@@ -485,6 +489,10 @@ export default function CashierDashboard() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {filteredProducts.map((p) => {
+<<<<<<< HEAD
+=======
+              // Tampilkan rentang harga jika ada varian
+>>>>>>> d57195eec142e7de8dcd6a81ce42cd47a79aa449
               let priceDisplay = `Rp ${formatRp(p.price)}`;
               if (p.variants && p.variants.length > 0) {
                 const prices = p.variants.map(v => v.price);
