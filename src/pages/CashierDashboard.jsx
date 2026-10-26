@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2, User, Lock, Settings } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -12,7 +12,10 @@ export default function CashierDashboard() {
   const [isShiftOpen, setIsShiftOpen] = useState(false);
   const [modalShift, setModalShift] = useState(false);
   
-  // Format Titik Uang Input
+  // Inisial huruf otomatis dari nama kasir
+  const [initials, setInitials] = useState('DL');
+  
+  // Input dengan format string titik
   const [initialCashInput, setInitialCashInput] = useState('');
   const [actualCashInput, setActualCashInput] = useState('');
   const [activeShiftId, setActiveShiftId] = useState(null);
@@ -23,14 +26,15 @@ export default function CashierDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  // Keranjang & Drawer
+  // Modal Pilih Varian
+  const [variantModalProduct, setVariantModalProduct] = useState(null);
+
+  // Keranjang & Drawer Mobile
   const [cart, setCart] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successModal, setSuccessModal] = useState(false);
   const [closeShiftModal, setCloseShiftModal] = useState(false);
 
-  // State Action Bar / Dropdown Profil
+  // State Action Bar / Dropdown Menu Shift (Garis Tiga)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
 
@@ -64,7 +68,7 @@ export default function CashierDashboard() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
-  // Inisialisasi Sesi & Ambil Produk Murni dari Supabase berdasarkan owner_id
+  // Inisialisasi Sesi & Pemetaan Produk Beserta Varian dari Supabase
   useEffect(() => {
     const initCashierSession = async () => {
       setLoading(true);
@@ -75,7 +79,6 @@ export default function CashierDashboard() {
 
         if (session && session.user) {
           currentCashierName = session.user.user_metadata?.full_name || session.user.email || 'Kasir';
-          // Ambil owner_id dari metadata atau fallback ke local storage
           currentOwnerId = session.user.user_metadata?.owner_id || localStorage.getItem('owner_id') || session.user.id;
           setCashierName(currentCashierName);
           setOwnerId(currentOwnerId);
@@ -84,45 +87,80 @@ export default function CashierDashboard() {
           setOwnerId(currentOwnerId);
         }
 
-        // 1. Cek Shift Aktif di Supabase
-        const { data: shiftData } = await supabase
-          .from('shifts')
-          .select('*')
-          .eq('owner_id', currentOwnerId)
-          .eq('cashier_name', currentCashierName)
-          .eq('status', 'open')
-          .maybeSingle();
+        const nameParts = currentCashierName.split(' ');
+        const calculatedInitials = nameParts.length > 1 
+          ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase() 
+          : nameParts[0].substring(0, 2).toUpperCase();
+        setInitials(calculatedInitials);
 
-        if (shiftData) {
+        const localShiftStatus = localStorage.getItem(`shift_active_${currentCashierName}`);
+        const localShiftId = localStorage.getItem(`active_shift_id`);
+
+        if (localShiftStatus === 'true' && localShiftId) {
           setIsShiftOpen(true);
-          setActiveShiftId(shiftData.id);
+          setActiveShiftId(localShiftId);
           setModalShift(false);
         } else {
-          setModalShift(true); // Munculkan open shift sekali saat masuk
+          const { data: shiftData } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('owner_id', currentOwnerId)
+            .eq('cashier_name', currentCashierName)
+            .eq('status', 'open')
+            .maybeSingle();
+
+          if (shiftData) {
+            setIsShiftOpen(true);
+            setActiveShiftId(shiftData.id);
+            setModalShift(false);
+            localStorage.setItem(`shift_active_${currentCashierName}`, 'true');
+            localStorage.setItem(`active_shift_id`, shiftData.id);
+          } else {
+            setIsShiftOpen(false);
+            setModalShift(true);
+          }
         }
 
-        // 2. Ambil Produk Murni dari tabel `products` di Supabase berdasarkan owner_id
+        // Ambil Produk & Varian dari Supabase
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
           .eq('owner_id', currentOwnerId);
 
-        if (prodError) throw prodError;
+        let rawProducts = prodData;
+        if (prodError || !rawProducts || rawProducts.length === 0) {
+          const { data: prodIndo } = await supabase.from('produk').select('*');
+          if (prodIndo) rawProducts = prodIndo;
+        }
 
-        if (prodData && prodData.length > 0) {
-          setProducts(prodData.map((item, idx) => ({
-            id: item.id || idx,
-            name: item.name || item.nama_produk || 'Produk Tanpa Nama',
-            category: item.category || item.kategori || 'Umum',
-            price: Number(item.price || item.harga_jual || 0),
-            stock: Number(item.stock || item.stok || 10),
-            image: item.image_url || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
-          })));
+        if (rawProducts && rawProducts.length > 0) {
+          setProducts(rawProducts.map((item, idx) => {
+            const rawVariants = item.variants || item.variasi || [];
+            const variants = rawVariants.map(v => ({
+              name: v.name || v.nama || 'Varian',
+              price: Number(v.price || v.harga || 0)
+            }));
+
+            let basePrice = Number(item.price || item.harga || item.harga_jual || 0);
+            if (variants.length > 0 && basePrice === 0) {
+              basePrice = variants[0].price;
+            }
+
+            return {
+              id: item.id || idx,
+              name: item.name || item.nama || item.nama_produk || 'Produk Tanpa Nama',
+              category: item.category || item.kategori || 'Semua',
+              price: basePrice,
+              variants: variants,
+              stock: Number(item.stock || item.stok || 10),
+              image: item.image_url || item.foto || item.image || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
+            };
+          }));
         } else {
-          setProducts([]); // Kosong jika owner belum mendaftarkan produk
+          setProducts([]);
         }
       } catch (err) {
-        console.error('Gagal memuat data kasir:', err.message);
+        console.error('Gagal memuat sesi kasir:', err.message);
       } finally {
         setLoading(false);
       }
@@ -147,18 +185,23 @@ export default function CashierDashboard() {
             owner_id: ownerId,
             cashier_name: cashierName,
             initial_cash: rawCash,
-            status: 'open',
-            opened_at: new Date().toISOString()
+            status: 'open'
           }
         ])
         .select()
         .single();
 
       if (error) throw error;
-      if (data) setActiveShiftId(data.id);
+      
+      if (data) {
+        setActiveShiftId(data.id);
+        localStorage.setItem(`active_shift_id`, data.id);
+      }
 
       setIsShiftOpen(true);
       setModalShift(false);
+      localStorage.setItem(`shift_active_${cashierName}`, 'true');
+      setInitialCashInput('');
     } catch (err) {
       console.error('Gagal open shift:', err.message);
       setIsShiftOpen(true);
@@ -181,29 +224,55 @@ export default function CashierDashboard() {
       }
 
       setIsShiftOpen(false);
+      setActiveShiftId(null);
       setCloseShiftModal(false);
       setIsProfileMenuOpen(false);
+      
+      localStorage.removeItem(`shift_active_${cashierName}`);
+      localStorage.removeItem(`active_shift_id`);
+      
       setModalShift(true);
+      setActualCashInput('');
       alert('Shift berhasil ditutup.');
     } catch (err) {
       console.error('Gagal close shift:', err.message);
     }
   };
 
-  const addToCart = (product) => {
-    if (product.stock <= 0) return;
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
-        return prev.map((item) => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
-      }
-      return [...prev, { ...product, qty: 1 }];
-    });
+  const handleOpenShiftMenuClick = () => {
+    if (isShiftOpen) {
+      alert('Kamu sudah memasukan modal awal uang di laci kasir');
+    } else {
+      setModalShift(true);
+    }
+    setIsProfileMenuOpen(false);
   };
 
-  const updateQty = (id, delta) => {
+  const handleProductClick = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      setVariantModalProduct(product);
+    } else {
+      addToCartDirect(product, product.price, '');
+    }
+  };
+
+  const addToCartDirect = (product, price, variantName) => {
+    const cartItemId = variantName ? `${product.id}-${variantName}` : product.id;
+    const cartItemName = variantName ? `${product.name} (${variantName})` : product.name;
+
+    setCart((prev) => {
+      const existing = prev.find((item) => item.cartId === cartItemId);
+      if (existing) {
+        return prev.map((item) => item.cartId === cartItemId ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { cartId: cartItemId, id: product.id, name: cartItemName, price: price, qty: 1, stock: product.stock }];
+    });
+    setVariantModalProduct(null);
+  };
+
+  const updateQty = (cartId, delta) => {
     setCart((prev) => prev.map((item) => {
-      if (item.id === id) {
+      if (item.cartId === cartId) {
         const newQty = item.qty + delta;
         return newQty > 0 ? { ...item, qty: newQty } : null;
       }
@@ -222,34 +291,13 @@ export default function CashierDashboard() {
 
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
 
-  const handleCheckout = async () => {
+  const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
-    setIsSubmitting(true);
-    try {
-      const orderId = `CS-TRX-${Math.floor(100000 + Math.random() * 900000)}`;
-      await supabase.from('transactions').insert([
-        {
-          order_id: orderId,
-          owner_id: ownerId,
-          actor_name: cashierName,
-          type: 'Masuk',
-          total_amount: subtotal,
-          payment_method: 'Tunai',
-          payment_status: 'success'
-        }
-      ]);
-      setSuccessModal(true);
-      setCart([]);
-    } catch (err) {
-      setSuccessModal(true);
-      setCart([]);
-    } finally {
-      setIsSubmitting(false);
-    }
+    navigate('/kasir/pesanan', { state: { cart, subtotal } });
   };
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] lg:pb-12 lg:pl-24 lg:pr-96">
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] md:pb-12 lg:pr-80">
       
       {/* MODAL OPEN SHIFT */}
       {modalShift && (
@@ -259,7 +307,7 @@ export default function CashierDashboard() {
               <CheckCircle2 size={24} />
             </div>
             <h2 className="text-lg font-bold mb-1">Buka Shift Kasir (Open Shift)</h2>
-            <p className="text-xs text-gray-500 mb-4">Masukkan modal awal di laci kasir.</p>
+            <p className="text-xs text-gray-500 mb-4">Wajib masukkan modal awal di laci kasir untuk mulai bertransaksi.</p>
             <form onSubmit={handleOpenShift} className="space-y-4">
               <div className="relative">
                 <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
@@ -279,6 +327,36 @@ export default function CashierDashboard() {
                 Mulai Shift
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PILIH VARIAN PRODUK */}
+      {variantModalProduct && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-sm font-bold text-gray-900 mb-1">{variantModalProduct.name}</h3>
+            <p className="text-xs text-gray-500 mb-4">Pilih varian produk yang diinginkan:</p>
+            
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {variantModalProduct.variants.map((v, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => addToCartDirect(variantModalProduct, v.price, v.name)}
+                  className="w-full p-3 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-[#01A684] rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer"
+                >
+                  <span className="text-gray-800">{v.name}</span>
+                  <span className="text-[#01A684]">Rp {formatRp(v.price)}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setVariantModalProduct(null)}
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0 transition-colors"
+            >
+              Batal
+            </button>
           </div>
         </div>
       )}
@@ -322,33 +400,41 @@ export default function CashierDashboard() {
       {/* STICKY HEADER */}
       <header className="sticky top-0 backdrop-blur-xl z-40 bg-[#F1F2F6]/95 pt-4 pb-3 px-6 border-b border-gray-200/60 shadow-xs">
         <div className="flex items-center justify-between mb-3">
+          
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
-              DL
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200 bg-[#01A684] flex items-center justify-center font-bold text-white text-xs shadow-sm">
+              {initials}
             </div>
             <div>
               <h1 className="text-sm font-bold text-[#1A1A1A]">{cashierName}</h1>
-              <span className="text-[10px] bg-[#E6F6F3] text-[#01A684] px-2 py-0.5 rounded-full font-semibold">Shift Aktif</span>
+              <span className="text-[10px] bg-[#E6F6F3] text-[#01A684] px-2 py-0.5 rounded-full font-semibold">
+                {isShiftOpen ? 'Shift Aktif' : 'Shift Nonaktif'}
+              </span>
             </div>
           </div>
 
-          {/* ACTION BAR PROFIL (Klik Foto Profil untuk memunculkan menu termasuk Close Shift)[cite: 9] */}
           <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer focus:outline-none hover:border-[#01A684] transition-colors bg-white flex items-center justify-center"
-              title="Menu Profil"
+              className="w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm cursor-pointer flex items-center justify-center text-gray-700 hover:border-[#01A684] transition-all"
+              title="Menu Shift"
             >
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" alt="Profil" className="w-full h-full object-cover" />
+              <Menu size={20} />
             </button>
 
-            {/* Dropdown Action Bar */}
             {isProfileMenuOpen && (
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-4 py-2 border-b border-gray-100">
                   <p className="text-xs font-bold text-[#1A1A1A]">{cashierName}</p>
-                  <p className="text-[10px] text-gray-400">Kasir Outlet</p>
+                  <p className="text-[10px] text-gray-400">Manajemen Shift Kasir</p>
                 </div>
+                <button
+                  onClick={handleOpenShiftMenuClick}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-[#01A684] hover:bg-emerald-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>Open Shift (Buka Shift)</span>
+                </button>
                 <button
                   onClick={() => {
                     setIsProfileMenuOpen(false);
@@ -357,7 +443,7 @@ export default function CashierDashboard() {
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
                 >
                   <LogOut size={15} />
-                  <span>Close Shift (Tutup Shift)</span>[cite: 9]
+                  <span>Close Shift (Tutup Shift)</span>
                 </button>
               </div>
             )}
@@ -390,37 +476,47 @@ export default function CashierDashboard() {
         </div>
       </header>
 
-      {/* PRODUCT GRID (Murni dari Supabase berdasarkan owner_id)[cite: 9] */}
-      <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 px-6 pt-4">
+      {/* PRODUCT GRID */}
+      <main className="w-full max-w-md mx-auto md:max-w-full md:px-8 px-6 pt-4">
         {loading ? (
           <p className="text-center text-xs text-gray-500 py-12">Memuat produk dari Supabase...</p>
         ) : filteredProducts.length === 0 ? (
-          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang dibuat oleh Owner.</p>
+          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang tersedia di database Supabase.</p>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {filteredProducts.map((p) => (
-              <div
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="bg-white rounded-2xl p-2.5 border border-gray-100 shadow-xs flex flex-col justify-between cursor-pointer hover:border-[#01A684]"
-              >
-                <div>
-                  <div className="w-full h-20 rounded-xl overflow-hidden mb-2 bg-gray-100">
-                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {filteredProducts.map((p) => {
+              let priceDisplay = `Rp ${formatRp(p.price)}`;
+              if (p.variants && p.variants.length > 0) {
+                const prices = p.variants.map(v => v.price);
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                priceDisplay = min === max ? `Rp ${formatRp(min)}` : `Rp ${formatRp(min)} - ${formatRp(max)}`;
+              }
+
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => handleProductClick(p)}
+                  className="bg-white rounded-2xl p-2.5 border border-gray-100 shadow-xs flex flex-col justify-between cursor-pointer hover:border-[#01A684]"
+                >
+                  <div>
+                    <div className="w-full h-24 rounded-xl overflow-hidden mb-2 bg-gray-100">
+                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                    </div>
+                    <h3 className="text-xs font-semibold text-[#1A1A1A] line-clamp-2 leading-tight mb-1">{p.name}</h3>
                   </div>
-                  <h3 className="text-xs font-semibold text-[#1A1A1A] line-clamp-2 leading-tight mb-1">{p.name}</h3>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[11px] font-bold text-[#01A684]">{priceDisplay}</span>
+                    <span className="w-6 h-6 rounded-lg bg-[#E6F6F3] text-[#01A684] flex items-center justify-center text-xs font-bold">+</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs font-bold text-[#01A684]">Rp {formatRp(p.price)}</span>
-                  <span className="w-6 h-6 rounded-lg bg-[#E6F6F3] text-[#01A684] flex items-center justify-center text-xs font-bold">+</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
 
-      {/* MOBILE PESANAN */}
+      {/* MOBILE PESANAN (DRAWER) */}
       <div className="md:hidden fixed bottom-[72px] left-4 right-4 bg-[#1A1A1A] text-white rounded-2xl p-4 shadow-xl z-40">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsDrawerOpen(!isDrawerOpen)}>
           <div className="flex items-center gap-2">
@@ -440,22 +536,21 @@ export default function CashierDashboard() {
         {isDrawerOpen && (
           <div className="mt-4 pt-3 border-t border-white/10 max-h-56 overflow-y-auto space-y-3">
             {cart.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-xs">
+              <div key={item.cartId} className="flex items-center justify-between text-xs">
                 <div>
                   <p className="font-semibold">{item.name}</p>
                   <p className="text-gray-400">Rp {formatRp(item.price)} x {item.qty}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-white/10 rounded-md text-white border-0">-</button>
+                  <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 bg-white/10 rounded-md text-white border-0">-</button>
                   <span>{item.qty}</span>
-                  <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 bg-white/10 rounded-md text-white border-0">+</button>
+                  <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 bg-white/10 rounded-md text-white border-0">+</button>
                 </div>
               </div>
             ))}
             {cart.length > 0 && (
               <button
-                onClick={handleCheckout}
-                disabled={isSubmitting}
+                onClick={handleProceedToCheckout}
                 className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-bold mt-2 cursor-pointer border-0"
               >
                 Bayar Sekarang (Rp {formatRp(subtotal)})
@@ -465,59 +560,48 @@ export default function CashierDashboard() {
         )}
       </div>
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:block fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 overflow-y-auto shadow-sm">
-        <h2 className="text-base font-bold mb-4 flex items-center gap-2">
-          <ShoppingBag size={18} className="text-[#01A684]" /> Pesanan Saat Ini
-        </h2>
-        
-        <div className="space-y-3 mb-6">
-          {cart.map((item) => (
-            <div key={item.id} className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <div className="flex-1 pr-2">
-                <p className="text-xs font-bold text-[#1A1A1A] line-clamp-1">{item.name}</p>
-                <p className="text-[11px] text-[#01A684] font-semibold">Rp {formatRp(item.price * item.qty)}</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">-</button>
-                <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
-                <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">+</button>
-              </div>
-            </div>
-          ))}
+      {/* TABLET & DESKTOP SIDEBAR */}
+      <aside className="hidden md:flex fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 flex-col justify-between shadow-sm">
+        <div>
+          <h2 className="text-base font-bold mb-4 flex items-center gap-2">
+            <ShoppingBag size={18} className="text-[#01A684]" /> Pesanan Saat Ini
+          </h2>
+          
+          <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            {cart.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-12">Belum ada item pesanan.</p>
+            ) : (
+              cart.map((item) => (
+                <div key={item.cartId} className="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div className="flex-1 pr-2">
+                    <p className="text-xs font-bold text-[#1A1A1A] line-clamp-1">{item.name}</p>
+                    <p className="text-[11px] text-[#01A684] font-semibold">Rp {formatRp(item.price * item.qty)}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">-</button>
+                    <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                    <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 bg-gray-100 rounded-md text-xs border-0">+</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-4 space-y-2">
+        <div className="border-t border-gray-100 pt-4 space-y-3 bg-white">
           <div className="flex justify-between text-sm font-bold">
             <span>Total Pembayaran</span>
             <span className="text-[#01A684]">Rp {formatRp(subtotal)}</span>
           </div>
           <button
-            disabled={cart.length === 0 || isSubmitting}
-            onClick={handleCheckout}
+            disabled={cart.length === 0}
+            onClick={handleProceedToCheckout}
             className={`w-full py-3 rounded-xl text-xs font-bold text-white border-0 cursor-pointer ${cart.length > 0 ? 'bg-[#01A684]' : 'bg-gray-300'}`}
           >
             Proses Pembayaran
           </button>
         </div>
       </aside>
-
-      {successModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-xs rounded-3xl shadow-2xl p-6 flex flex-col items-center text-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 text-[#01A684] flex items-center justify-center">
-              <CheckCircle2 size={36} />
-            </div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1A1A1A]">Transaksi Berhasil!</h3>
-            <button 
-              onClick={() => setSuccessModal(false)}
-              className="w-full py-3 bg-[#01A684] text-white text-xs font-bold rounded-xl cursor-pointer border-0"
-            >
-              Transaksi Baru
-            </button>
-          </div>
-        </div>
-      )}
 
       <CashierBottomNav />
 
