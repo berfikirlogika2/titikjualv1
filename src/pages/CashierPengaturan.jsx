@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, User, Edit3 } from 'lucide-react';
+import { Menu, User, LogOut, Lock, Save } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -8,31 +8,33 @@ export default function CashierPengaturan() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
   const [profile, setProfile] = useState({
-    name: 'Dewi Lestari',
-    username: 'dewi_lestari',
+    name: 'Fadhil Kasir',
+    username: 'fadhilkasir',
     phone: '081234567890',
-    email: 'dewi.lestari@pos.com',
-    role: 'Kasir',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkWqdHV7mD5ewCARR72cMZmIdVZlZ9KEtJHtWoORHxtrZ2ayNUg66aB90Bqj95MsHHT9fttvD5mUZZLxcnBrMIHeh1lXMKdw2wTjhGaQaHpHxyJF208uamxkfiuH6zLX52ysQRiVTFIiyfsaeHwct2do2ezDhkzTNfb59Kf8mgnYPkbGNManQbLC7mHgfZ59rPx5skdgCVrxB9DTraTvi8X4T-2r74XKf5EHKWZ-kryA4QoCYpevrkQ'
+    email: 'fadhil@pos.com',
+    role: 'Kasir'
   });
 
   const [passwords, setPasswords] = useState({
-    current: '',
     newPass: '',
     confirmPass: ''
   });
 
   const [notifSystem, setNotifSystem] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
-  // Ambil data profil dan preferensi dari Supabase saat halaman dimuat
+  // Ambil data profil asli dari sesi login Supabase saat halaman dimuat
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
+          const userEmail = session.user.email || 'fadhil@pos.com';
+          // Ambil username bawaan dari email (sebelum tanda @) atau metadata
+          const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
           const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -41,28 +43,30 @@ export default function CashierPengaturan() {
 
           if (data) {
             setProfile({
-              name: data.full_name || data.name || 'Dewi Lestari',
-              username: data.username || 'dewi_lestari',
+              name: data.full_name || 'Fadhil Kasir',
+              username: data.username || defaultUsername,
               phone: data.phone || '081234567890',
-              email: session.user.email || 'dewi.lestari@pos.com',
-              role: data.role || 'Kasir',
-              avatar: data.avatar_url || profile.avatar
+              email: userEmail,
+              role: data.role || 'Kasir'
             });
             setNotifSystem(data.notif_system ?? true);
-            setDarkMode(data.dark_mode ?? false);
           } else {
-            // Jika baris profil belum ada di tabel profiles, buat baris baru secara otomatis
+            // Jika belum ada di tabel profiles, buat baris baru otomatis
             await supabase.from('profiles').insert([
               {
                 id: session.user.id,
-                full_name: 'Dewi Lestari',
-                username: 'dewi_lestari',
+                full_name: 'Fadhil Kasir',
+                username: defaultUsername,
                 phone: '081234567890',
                 role: 'Kasir',
-                notif_system: true,
-                dark_mode: false
+                notif_system: true
               }
             ]);
+            setProfile(prev => ({
+              ...prev,
+              username: defaultUsername,
+              email: userEmail
+            }));
           }
         }
       } catch (err) {
@@ -75,7 +79,7 @@ export default function CashierPengaturan() {
     fetchProfile();
   }, []);
 
-  // Simpan Perubahan Profil & Preferensi ke Supabase
+  // Simpan Perubahan Profil ke Supabase
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -84,20 +88,19 @@ export default function CashierPengaturan() {
       if (session && session.user) {
         const { error } = await supabase
           .from('profiles')
-          update({
+          .update({
             full_name: profile.name,
             username: profile.username,
             phone: profile.phone,
             notif_system: notifSystem,
-            dark_mode: darkMode,
             updated_at: new Date().toISOString()
           })
           .eq('id', session.user.id);
 
         if (error) throw error;
-        alert('Profil dan preferensi berhasil diperbarui ke Supabase!');
+        alert('Profil berhasil diperbarui!');
       } else {
-        alert('Profil berhasil diperbarui secara lokal (Simulasi)!');
+        alert('Profil berhasil diperbarui secara lokal!');
       }
     } catch (err) {
       alert('Gagal memperbarui profil: ' + err.message);
@@ -106,11 +109,11 @@ export default function CashierPengaturan() {
     }
   };
 
-  // Perbarui Kata Sandi menggunakan Supabase Auth
+  // Perbarui Kata Sandi
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     if (!passwords.newPass) {
-      alert('Mohon isi kata sandi baru.');
+      alert('Mohon masukkan kata sandi baru.');
       return;
     }
     if (passwords.newPass !== passwords.confirmPass) {
@@ -125,11 +128,30 @@ export default function CashierPengaturan() {
 
       if (error) throw error;
 
-      alert('Kata sandi berhasil diperbarui di Supabase Auth!');
-      setPasswords({ current: '', newPass: '', confirmPass: '' });
+      alert('Kata sandi berhasil diperbarui!');
+      setPasswords({ newPass: '', confirmPass: '' });
     } catch (err) {
       alert('Gagal memperbarui kata sandi: ' + err.message);
     }
+  };
+
+  // Fungsi Logout / Keluar Akun
+  const handleLogout = async () => {
+    if (window.confirm('Apakah Anda yakin ingin keluar dari aplikasi?')) {
+      await supabase.auth.signOut();
+      localStorage.clear();
+      navigate('/login');
+    }
+  };
+
+  // Ambil inisial nama untuk avatar default (Contoh: "Fadhil Kasir" -> "FK")
+  const getInitials = (name) => {
+    if (!name) return 'FK';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -148,11 +170,11 @@ export default function CashierPengaturan() {
 
         <div className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium mr-3">
           <User size={14} />
-          <span>Kasir (Edit Akses)</span>
+          <span>Kasir</span>
         </div>
 
-        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
-          KP
+        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-[#01A684]/10 flex items-center justify-center font-bold text-[#01A684]">
+          {getInitials(profile.name)}
         </div>
       </header>
 
@@ -160,31 +182,22 @@ export default function CashierPengaturan() {
       <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8">
         <div className="px-6 pt-4 pb-20 space-y-4">
           
-          {/* Profile Card Section */}
+          {/* Profile Card Section (Menggunakan Inisial Tanpa Foto Dummy) */}
           <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs flex flex-col items-center text-center">
-            <div className="relative mb-4">
-              <img 
-                alt="Profile" 
-                className="w-24 h-24 rounded-full object-cover border-4 border-[#E6F6F3] shadow-sm" 
-                src={profile.avatar} 
-              />
-              <button 
-                onClick={() => {
-                  const newAvatar = prompt('Masukkan URL foto profil baru:', profile.avatar);
-                  if (newAvatar) setProfile({ ...profile, avatar: newAvatar });
-                }}
-                className="absolute bottom-0 right-0 bg-[#01A684] text-white p-2 rounded-full shadow-md hover:opacity-90 transition-colors cursor-pointer border-0"
-              >
-                <Edit3 size={14} />
-              </button>
+            <div className="relative mb-3">
+              <div className="w-24 h-24 rounded-full bg-[#E6F6F3] text-[#01A684] flex items-center justify-center text-3xl font-extrabold border-4 border-[#01A684]/20 shadow-inner">
+                {getInitials(profile.name)}
+              </div>
             </div>
             <h2 className="text-xl font-bold text-[#1A1A1A]">{profile.name}</h2>
-            <p className="text-sm text-gray-500">{profile.role}</p>
+            <p className="text-sm text-gray-500">@{profile.username} • {profile.role}</p>
           </div>
 
           {/* Account Information Form */}
           <form onSubmit={handleUpdateProfile} className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs space-y-4">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-4">Informasi Akun</h3>
+            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-2 flex items-center gap-2">
+              <User size={16} className="text-[#01A684]" /> Informasi Akun
+            </h3>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Nama Lengkap</label>
@@ -193,15 +206,17 @@ export default function CashierPengaturan() {
                   type="text" 
                   value={profile.name}
                   onChange={(e) => setProfile({...profile, name: e.target.value})}
+                  required
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Username</label>
+                <label className="text-xs text-gray-500 block mb-1">Username Login</label>
                 <input 
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
                   type="text" 
                   value={profile.username}
                   onChange={(e) => setProfile({...profile, username: e.target.value})}
+                  required
                 />
               </div>
               <div>
@@ -216,7 +231,7 @@ export default function CashierPengaturan() {
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Email</label>
                 <input 
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" 
+                  className="w-full px-4 py-2.5 bg-gray-100 border border-gray-100 rounded-xl text-sm text-gray-500 cursor-not-allowed outline-none" 
                   type="email" 
                   value={profile.email}
                   disabled
@@ -225,70 +240,71 @@ export default function CashierPengaturan() {
               <button 
                 type="submit" 
                 disabled={saving}
-                className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-2 cursor-pointer border-0 shadow-xs"
+                className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-2 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-2"
               >
+                <Save size={16} />
                 {saving ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
               </button>
             </div>
           </form>
 
-          {/* Security Section */}
+          {/* Security Section (Pembaruan Kata Sandi yang Lebih Rapi) */}
           <form onSubmit={handleUpdatePassword} className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs space-y-3">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-4">Keamanan</h3>
-            <input 
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-              placeholder="Kata Sandi Saat Ini (Opsional)" 
-              type="password"
-              value={passwords.current}
-              onChange={(e) => setPasswords({...passwords, current: e.target.value})}
-            />
-            <input 
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-              placeholder="Kata Sandi Baru" 
-              type="password"
-              value={passwords.newPass}
-              onChange={(e) => setPasswords({...passwords, newPass: e.target.value})}
-            />
-            <input 
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-              placeholder="Konfirmasi Kata Sandi Baru" 
-              type="password"
-              value={passwords.confirmPass}
-              onChange={(e) => setPasswords({...passwords, confirmPass: e.target.value})}
-            />
+            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-2 flex items-center gap-2">
+              <Lock size={16} className="text-[#01A684]" /> Perbarui Kata Sandi
+            </h3>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Kata Sandi Baru</label>
+              <input 
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
+                placeholder="Minimal 6 karakter" 
+                type="password"
+                value={passwords.newPass}
+                onChange={(e) => setPasswords({...passwords, newPass: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Konfirmasi Kata Sandi Baru</label>
+              <input 
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
+                placeholder="Ulangi kata sandi baru" 
+                type="password"
+                value={passwords.confirmPass}
+                onChange={(e) => setPasswords({...passwords, confirmPass: e.target.value})}
+              />
+            </div>
             <button 
               type="submit" 
               className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-2 cursor-pointer border-0 shadow-xs"
             >
-              Perbarui Kata Sandi
+              Ubah Kata Sandi
             </button>
           </form>
 
-          {/* App Preferences */}
+          {/* App Preferences (Mode Gelap Dihilangkan) */}
           <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs">
             <h3 className="text-sm font-semibold text-[#1A1A1A] mb-4">Preferensi Aplikasi</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#1A1A1A]">Notifikasi Sistem</span>
-                <button 
-                  type="button"
-                  onClick={() => setNotifSystem(!notifSystem)}
-                  className={`w-10 h-6 rounded-full relative transition-colors cursor-pointer border-0 ${notifSystem ? 'bg-[#01A684]' : 'bg-gray-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifSystem ? 'right-1' : 'left-1'}`} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#1A1A1A]">Mode Gelap</span>
-                <button 
-                  type="button"
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`w-10 h-6 rounded-full relative transition-colors cursor-pointer border-0 ${darkMode ? 'bg-[#01A684]' : 'bg-gray-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${darkMode ? 'right-1' : 'left-1'}`} />
-                </button>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#1A1A1A]">Notifikasi Sistem</span>
+              <button 
+                type="button"
+                onClick={() => setNotifSystem(!notifSystem)}
+                className={`w-10 h-6 rounded-full relative transition-colors cursor-pointer border-0 ${notifSystem ? 'bg-[#01A684]' : 'bg-gray-300'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifSystem ? 'right-1' : 'left-1'}`} />
+              </button>
             </div>
+          </div>
+
+          {/* Tombol Logout di Paling Bawah */}
+          <div className="pt-2">
+            <button 
+              onClick={handleLogout}
+              className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-[20px] text-sm font-semibold hover:bg-red-100 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+            >
+              <LogOut size={18} />
+              Keluar Akun (Log Out)
+            </button>
           </div>
 
         </div>
