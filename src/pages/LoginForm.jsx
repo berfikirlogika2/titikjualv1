@@ -67,11 +67,7 @@ function LoginForm() {
       } else if (data.role === 'admin') {
         navigate('/admin-dashboard');
       } else {
-<<<<<<< HEAD
-        navigate('/cashier-dashboard'); // Sesuai rute App.jsx: /cashier-dashboard
-=======
-        navigate('/kasir'); // Langsung mengarah ke POS Kasir utama
->>>>>>> d57195eec142e7de8dcd6a81ce42cd47a79aa449
+        navigate('/cashier-dashboard'); // Sesuai rute POS Kasir utama
       }
     } catch (err) {
       console.error('Gagal login:', err.message);
