@@ -27,8 +27,8 @@ export default function CashierBottomNav() {
         }
       `}</style>
 
-      {/* MOBILE BOTTOM NAVIGATION: Terkunci di bawah dengan slide horizontal */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.08)] z-50 flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar border-t border-gray-100">
+      {/* MOBILE & TABLET BOTTOM NAVIGATION: Aktif untuk layar di bawah 1024px (mencakup 768px dan 960px) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.08)] z-50 flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar border-t border-gray-100">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -48,7 +48,7 @@ export default function CashierBottomNav() {
         })}
       </nav>
 
-      {/* TABLET & DESKTOP SIDEBAR: Di sebelah kiri layar dengan fitur Hide & Pop-up */}
+      {/* DESKTOP SIDEBAR: Di sebelah kiri layar khusus untuk ukuran 1024px ke atas (termasuk 1032px+) */}
       <div className={`cashier-sidebar-active hidden lg:flex fixed top-0 bottom-0 left-0 z-50 transition-all duration-300 ${isSidebarOpen ? 'w-24' : 'w-0 overflow-hidden'}`}>
         <nav className="w-24 bg-white flex flex-col justify-start items-center gap-6 pt-8 px-4 border-r border-gray-100 shadow-sm h-full relative">
           {navItems.map((item) => {

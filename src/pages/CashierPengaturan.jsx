@@ -26,10 +26,7 @@ export default function CashierPengaturan() {
   const [notifSystem, setNotifSystem] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  const getOwnerId = () => {
-    return localStorage.getItem('owner_id') || 'toko_123';
-  };
-
+  // Ambil data profil dan preferensi dari Supabase saat halaman dimuat
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
@@ -40,7 +37,7 @@ export default function CashierPengaturan() {
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
           if (data) {
             setProfile({
@@ -51,6 +48,21 @@ export default function CashierPengaturan() {
               role: data.role || 'Kasir',
               avatar: data.avatar_url || profile.avatar
             });
+            setNotifSystem(data.notif_system ?? true);
+            setDarkMode(data.dark_mode ?? false);
+          } else {
+            // Jika baris profil belum ada di tabel profiles, buat baris baru secara otomatis
+            await supabase.from('profiles').insert([
+              {
+                id: session.user.id,
+                full_name: 'Dewi Lestari',
+                username: 'dewi_lestari',
+                phone: '081234567890',
+                role: 'Kasir',
+                notif_system: true,
+                dark_mode: false
+              }
+            ]);
           }
         }
       } catch (err) {
@@ -63,6 +75,7 @@ export default function CashierPengaturan() {
     fetchProfile();
   }, []);
 
+  // Simpan Perubahan Profil & Preferensi ke Supabase
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -71,15 +84,18 @@ export default function CashierPengaturan() {
       if (session && session.user) {
         const { error } = await supabase
           .from('profiles')
-          .update({
+          update({
             full_name: profile.name,
             username: profile.username,
-            phone: profile.phone
+            phone: profile.phone,
+            notif_system: notifSystem,
+            dark_mode: darkMode,
+            updated_at: new Date().toISOString()
           })
           .eq('id', session.user.id);
 
         if (error) throw error;
-        alert('Profil berhasil diperbarui!');
+        alert('Profil dan preferensi berhasil diperbarui ke Supabase!');
       } else {
         alert('Profil berhasil diperbarui secara lokal (Simulasi)!');
       }
@@ -90,18 +106,30 @@ export default function CashierPengaturan() {
     }
   };
 
-  const handleUpdatePassword = (e) => {
+  // Perbarui Kata Sandi menggunakan Supabase Auth
+  const handleUpdatePassword = async (e) => {
     e.preventDefault();
-    if (!passwords.current || !passwords.newPass) {
-      alert('Mohon isi kata sandi saat ini dan sandi baru.');
+    if (!passwords.newPass) {
+      alert('Mohon isi kata sandi baru.');
       return;
     }
     if (passwords.newPass !== passwords.confirmPass) {
       alert('Konfirmasi kata sandi baru tidak cocok!');
       return;
     }
-    alert('Kata sandi berhasil diperbarui!');
-    setPasswords({ current: '', newPass: '', confirmPass: '' });
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwords.newPass
+      });
+
+      if (error) throw error;
+
+      alert('Kata sandi berhasil diperbarui di Supabase Auth!');
+      setPasswords({ current: '', newPass: '', confirmPass: '' });
+    } catch (err) {
+      alert('Gagal memperbarui kata sandi: ' + err.message);
+    }
   };
 
   return (
@@ -141,7 +169,10 @@ export default function CashierPengaturan() {
                 src={profile.avatar} 
               />
               <button 
-                onClick={() => alert('Ganti foto profil')}
+                onClick={() => {
+                  const newAvatar = prompt('Masukkan URL foto profil baru:', profile.avatar);
+                  if (newAvatar) setProfile({ ...profile, avatar: newAvatar });
+                }}
                 className="absolute bottom-0 right-0 bg-[#01A684] text-white p-2 rounded-full shadow-md hover:opacity-90 transition-colors cursor-pointer border-0"
               >
                 <Edit3 size={14} />
@@ -206,7 +237,7 @@ export default function CashierPengaturan() {
             <h3 className="text-sm font-semibold text-[#1A1A1A] mb-4">Keamanan</h3>
             <input 
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-              placeholder="Kata Sandi Saat Ini" 
+              placeholder="Kata Sandi Saat Ini (Opsional)" 
               type="password"
               value={passwords.current}
               onChange={(e) => setPasswords({...passwords, current: e.target.value})}
