@@ -61,13 +61,13 @@ function LoginForm() {
         return;
       }
 
-      // Arahkan langsung ke halaman berdasarkan role tanpa notifikasi pop-up role
+      // Arahkan ke halaman berdasarkan role masing-masing secara bersih tanpa pop-up
       if (data.role === 'owner') {
         navigate('/owner-dashboard');
       } else if (data.role === 'admin') {
         navigate('/admin-dashboard');
       } else {
-        navigate('/cashier-dashboard');
+        navigate('/kasir'); // Sesuai dengan rute App.jsx
       }
     } catch (err) {
       console.error('Gagal login:', err.message);
