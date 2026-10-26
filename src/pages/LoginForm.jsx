@@ -61,13 +61,13 @@ function LoginForm() {
         return;
       }
 
-      // Arahkan ke halaman berdasarkan role masing-masing secara akurat sesuai App.jsx
+      // Arahkan langsung ke halaman berdasarkan role tanpa notifikasi pop-up role
       if (data.role === 'owner') {
         navigate('/owner-dashboard');
       } else if (data.role === 'admin') {
         navigate('/admin-dashboard');
       } else {
-        navigate('/cashier-dashboard'); // Sesuai rute POS Kasir utama
+        navigate('/cashier-dashboard');
       }
     } catch (err) {
       console.error('Gagal login:', err.message);
