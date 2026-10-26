@@ -61,11 +61,7 @@ function LoginForm() {
         return;
       }
 
-<<<<<<< HEAD
       // Arahkan ke halaman berdasarkan role masing-masing secara akurat sesuai App.jsx
-=======
-      // Arahkan ke halaman berdasarkan role masing-masing secara akurat
->>>>>>> d57195eec142e7de8dcd6a81ce42cd47a79aa449
       if (data.role === 'owner') {
         navigate('/owner-dashboard');
       } else if (data.role === 'admin') {
