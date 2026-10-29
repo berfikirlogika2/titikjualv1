@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, ChevronUp, ChevronDown, Lock, Unlock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Menu, ChevronUp, ChevronDown, Lock, Unlock, ArrowDownRight, FileText } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -22,6 +22,33 @@ export default function CashierTransaksi() {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [modalInput, setModalInput] = useState('');
   const [closingInput, setClosingInput] = useState('');
+
+  // State Modal Pengeluaran Dadakan & Struk
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseFile, setExpenseFile] = useState(null);
+  const [submittingExpense, setSubmittingExpense] = useState(false);
+
+  // Fungsi Format Titik Ribuan untuk Input Angka
+  const formatRupiahInput = (value) => {
+    const numberString = value.replace(/[^,\d]/g, '').toString();
+    const split = numberString.split(',');
+    let sisa = split[0].length % 3;
+    let rupiah = split[0].substr(0, sisa);
+    let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+    if (ribuan) {
+      let separator = sisa ? '.' : '';
+      rupiah += separator + ribuan.join('.');
+    }
+    return split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
+  };
+
+  const parseRupiahNumber = (formattedStr) => {
+    if (!formattedStr) return 0;
+    return Number(formattedStr.replace(/\./g, ''));
+  };
 
   const getOwnerId = () => {
     return localStorage.getItem('owner_id') || 'toko_123';
@@ -47,7 +74,6 @@ export default function CashierTransaksi() {
           }
         }
 
-        // Cek apakah ada shift yang sedang OPEN untuk owner ini
         const currentOwnerId = getOwnerId();
         const { data: shiftData } = await supabase
           .from('cashier_shifts')
@@ -115,7 +141,9 @@ export default function CashierTransaksi() {
               date: tx.created_at ? tx.created_at.replace('T', ' ').substring(0, 16) : '2026-07-01 10:00',
               staff: `${tx.cashier_name || profile.name} / Staff`,
               amount: amount,
-              isMasuk: isMasuk
+              isMasuk: isMasuk,
+              notes: tx.notes || '',
+              receipt_url: tx.receipt_url || null
             };
           });
 
@@ -135,7 +163,7 @@ export default function CashierTransaksi() {
   // Fungsi Buka Shift (Open Shift)
   const handleOpenShift = async (e) => {
     e.preventDefault();
-    const openingBal = Number(modalInput);
+    const openingBal = parseRupiahNumber(modalInput);
     if (isNaN(openingBal) || openingBal < 0) {
       alert('Masukkan nominal modal awal yang valid!');
       return;
@@ -171,15 +199,14 @@ export default function CashierTransaksi() {
   // Fungsi Tutup Shift (Close Shift) dengan Rekonsiliasi Pintar
   const handleCloseShift = async (e) => {
     e.preventDefault();
-    const physicalCash = Number(closingInput);
+    const physicalCash = parseRupiahNumber(closingInput);
     if (isNaN(physicalCash) || physicalCash < 0) {
       alert('Masukkan jumlah uang fisik di laci dengan benar!');
       return;
     }
 
-    // Rumus: Uang Seharusnya = Modal Awal + Total Penjualan Tunai Masuk - Pengeluaran
     const expected = Number(currentShift.opening_balance) + summary.masuk - summary.keluar;
-    const difference = physicalCash - expected; // Positif = Lebih, Negatif = Kurang
+    const difference = physicalCash - expected;
 
     try {
       const { error } = await supabase
@@ -206,9 +233,114 @@ export default function CashierTransaksi() {
     }
   };
 
+  // Fungsi Kompresi Gambar Client-Side (Agar Server Ramah & Murah)
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob((blob) => {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          }, 'image/jpeg', 0.7);
+        };
+      };
+    });
+  };
+
+  // Fungsi Simpan Pengeluaran Dadakan & Upload Struk
+  const handleSaveExpense = async (e) => {
+    e.preventDefault();
+    const amountVal = parseRupiahNumber(expenseAmount);
+    if (amountVal <= 0 || !expenseDesc) {
+      alert('Mohon isi nominal dan keterangan pengeluaran dengan benar.');
+      return;
+    }
+
+    setSubmittingExpense(true);
+    try {
+      const currentOwnerId = getOwnerId();
+      let receiptUrl = null;
+
+      if (expenseFile) {
+        const optimizedFile = await compressImage(expenseFile);
+        const fileExt = 'jpg';
+        const fileName = `expense_${Date.now()}.${fileExt}`;
+        const filePath = `${currentOwnerId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('receipts')
+          .upload(filePath, optimizedFile);
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(filePath);
+          receiptUrl = urlData?.publicUrl;
+        }
+      }
+
+      const newExpense = {
+        owner_id: currentOwnerId,
+        cashier_name: profile.name,
+        type: 'Keluar',
+        total_amount: amountVal,
+        total_pay: amountVal,
+        notes: expenseDesc,
+        receipt_url: receiptUrl,
+        transaction_code: `EXP-${Math.floor(1000 + Math.random() * 9000)}`,
+        created_at: new Date().toISOString()
+      };
+
+      const { error: insertError } = await supabase
+        .from('transactions')
+        .insert([newExpense]);
+
+      if (insertError) throw insertError;
+
+      alert('Pengeluaran dadakan berhasil dicatat!');
+      setShowExpenseModal(false);
+      setExpenseAmount('');
+      setExpenseDesc('');
+      setExpenseFile(null);
+
+      window.location.reload();
+    } catch (err) {
+      alert('Gagal mencatat pengeluaran: ' + err.message);
+    } finally {
+      setSubmittingExpense(false);
+    }
+  };
+
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
   
-  // Inisial nama untuk avatar header (Fadhil Kasir -> FK)
   const getInitials = (name) => {
     if (!name) return 'FK';
     const parts = name.trim().split(' ');
@@ -219,7 +351,7 @@ export default function CashierTransaksi() {
   return (
     <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[160px] lg:pb-12 lg:pl-24 lg:pr-8">
       
-      {/* MainHeader (Sinkron dengan Fadhil Kasir & Inisial FK) */}
+      {/* MainHeader */}
       <header className="pt-8 pb-4 px-6 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90">
         <button 
           onClick={() => navigate(-1)}
@@ -227,7 +359,7 @@ export default function CashierTransaksi() {
         >
           <Menu size={18} />
         </button>
-        <h1 className="text-lg font-semibold flex-1 px-4 truncate text-center">Kasir Pro - Transaksi & Shift</h1>
+        <h1 className="text-lg font-semibold flex-1 px-4 truncate text-center">Kasir Pro - Transaksi &amp; Shift</h1>
         <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
           {getInitials(profile.name)}
         </div>
@@ -236,9 +368,9 @@ export default function CashierTransaksi() {
       {/* Main Content */}
       <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 flex flex-col gap-4">
         
-        {/* Shift Control Banner */}
-        <div className="px-6 pt-2">
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center justify-between">
+        {/* Shift Control & Expense Action Banner */}
+        <div className="px-6 pt-2 flex flex-col sm:flex-row gap-3">
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center justify-between flex-1">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentShift ? 'bg-emerald-100 text-[#01A684]' : 'bg-amber-100 text-amber-600'}`}>
                 {currentShift ? <Unlock size={20} /> : <Lock size={20} />}
@@ -248,7 +380,7 @@ export default function CashierTransaksi() {
                   {currentShift ? `Shift Aktif (${currentShift.cashier_name})` : 'Belum Ada Shift Aktif'}
                 </h4>
                 <p className="text-[11px] text-gray-500">
-                  {currentShift ? `Modal Awal: Rp ${formatRp(currentShift.opening_balance)}` : 'Buka shift untuk mulai kontrol laci uang'}
+                  {currentShift ? `Modal Awal: Rp ${formatRp(currentShift.opening_balance)}` : 'Buka shift untuk kontrol laci'}
                 </p>
               </div>
             </div>
@@ -259,6 +391,14 @@ export default function CashierTransaksi() {
               {currentShift ? 'Tutup Shift' : 'Buka Shift'}
             </button>
           </div>
+
+          <button
+            onClick={() => setShowExpenseModal(true)}
+            className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-4 py-3 rounded-2xl text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 shadow-xs transition-colors"
+          >
+            <ArrowDownRight size={16} />
+            Catat Beli Bahan / Pengeluaran
+          </button>
         </div>
 
         {/* Modal Open/Close Shift */}
@@ -285,14 +425,17 @@ export default function CashierTransaksi() {
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Total Uang Fisik di Laci Sekarang (Rp)</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none"
-                      placeholder="Contoh: 2500000"
-                      value={closingInput}
-                      onChange={(e) => setClosingInput(e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
+                      <input 
+                        type="text"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-[#01A684] focus:border-[#01A684] outline-none"
+                        placeholder="Contoh: 2.500.000"
+                        value={closingInput}
+                        onChange={(e) => setClosingInput(formatRupiahInput(e.target.value))}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-2">
                     <button 
@@ -317,14 +460,17 @@ export default function CashierTransaksi() {
                   </p>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Modal Awal Laci (Rp)</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none"
-                      placeholder="Contoh: 500000"
-                      value={modalInput}
-                      onChange={(e) => setModalInput(e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
+                      <input 
+                        type="text"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-[#01A684] focus:border-[#01A684] outline-none"
+                        placeholder="Contoh: 500.000"
+                        value={modalInput}
+                        onChange={(e) => setModalInput(formatRupiahInput(e.target.value))}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-2">
                     <button 
@@ -343,6 +489,74 @@ export default function CashierTransaksi() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Catat Pengeluaran Dadakan & Upload Struk */}
+        {showExpenseModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-[#1A1A1A]">Catat Pengeluaran Dadakan</h3>
+              <p className="text-xs text-gray-500">
+                Gunakan ini jika kasir mendadak beli bahan baku atau keperluan operasional dari laci.
+              </p>
+              
+              <form onSubmit={handleSaveExpense} className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Nominal Biaya (Rp)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-3 text-sm font-bold text-gray-400">Rp</span>
+                    <input 
+                      type="text"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-[#01A684] focus:border-[#01A684] outline-none"
+                      placeholder="Contoh: 75.000"
+                      value={expenseAmount}
+                      onChange={(e) => setExpenseAmount(formatRupiahInput(e.target.value))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Keterangan (Catatan)</label>
+                  <input 
+                    type="text"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none"
+                    placeholder="Contoh: Beli es batu & cabai di pasar"
+                    value={expenseDesc}
+                    onChange={(e) => setExpenseDesc(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Upload Bukti Struk / Nota (Opsional)</label>
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setExpenseFile(e.target.files[0])}
+                    className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-[#01A684] hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowExpenseModal(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={submittingExpense}
+                    className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0 shadow-xs"
+                  >
+                    {submittingExpense ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -391,12 +605,12 @@ export default function CashierTransaksi() {
         <div className="px-6">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
             <div className="overflow-x-auto hide-scrollbar">
-              <table className="w-full text-left min-w-[600px]">
+              <table className="w-full text-left min-w-[650px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="text-xs text-gray-500">
                     <th className="p-4 font-medium">ID Transaksi</th>
                     <th className="p-4 font-medium">Tanggal &amp; Waktu</th>
-                    <th className="p-4 font-medium">Kasir / Staff</th>
+                    <th className="p-4 font-medium">Kasir / Keterangan</th>
                     <th className="p-4 font-medium text-right">Jumlah (Rp)</th>
                   </tr>
                 </thead>
@@ -412,9 +626,19 @@ export default function CashierTransaksi() {
                   ) : (
                     transactions.map((trx) => (
                       <tr key={trx.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 text-[#1A1A1A] font-mono text-xs font-semibold">{trx.code}</td>
+                        <td className="p-4 text-[#1A1A1A] font-mono text-xs font-semibold">
+                          {trx.code}
+                          {trx.receipt_url && (
+                            <a href={trx.receipt_url} target="_blank" rel="noreferrer" className="block text-[10px] text-[#01A684] hover:underline flex items-center gap-0.5 mt-0.5">
+                              <FileText size={10} /> Lihat Struk
+                            </a>
+                          )}
+                        </td>
                         <td className="p-4 text-gray-500 text-xs">{trx.date}</td>
-                        <td className="p-4 text-[#1A1A1A] text-xs font-medium">{trx.staff}</td>
+                        <td className="p-4 text-[#1A1A1A] text-xs font-medium">
+                          {trx.staff}
+                          {trx.notes && <span className="block text-[11px] text-gray-400 mt-0.5">{trx.notes}</span>}
+                        </td>
                         <td className={`p-4 text-right font-bold text-xs ${trx.isMasuk ? 'text-[#01A684]' : 'text-red-500'}`}>
                           {trx.isMasuk ? '+ ' : '- '}Rp {formatRp(trx.amount)}
                         </td>

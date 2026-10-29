@@ -10,21 +10,29 @@ export default function CashierPesanan() {
   const { cart = [], subtotal = 0 } = location.state || {};
 
   const [ownerId, setOwnerId] = useState('toko_123');
-  const [cashierName, setCashierName] = useState('Dewi Lestari');
+  const [cashierName, setCashierName] = useState('Fadhil Kasir');
 
   // State Detail Transaksi
   const [invoiceNo] = useState(`#ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`);
-  const [currentDate] = useState('31 Okt 2023'); // Bisa disesuaikan dengan new Date().toLocaleDateString()
+  const [currentDate] = useState(new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }));
   const [orderType, setOrderType] = useState('Makan di Tempat');
   const [tableNo, setTableNo] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [amountPaidInput, setAmountPaidInput] = useState('100.000');
+  const [amountPaidInput, setAmountPaidInput] = useState('');
   const [staffHelper, setStaffHelper] = useState('');
 
-  // State Member
+  // State Member & Pendaftaran Member Baru
   const [members, setMembers] = useState([]);
-  const [searchMember, setSearchMember] = useState('Budi Santoso');
-  const [selectedMember, setSelectedMember] = useState({ nama: 'Budi Santoso', poin: 1250 });
+  const [searchMember, setSearchMember] = useState('');
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [savingMember, setSavingMember] = useState(false);
+
+  // State Diskon dari Database
+  const [availableDiscounts, setAvailableDiscounts] = useState([]);
+  const [selectedDiscount, setSelectedDiscount] = useState(null); // Menyimpan objek diskon yang dipilih
 
   // State Modal Struk
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
@@ -32,38 +40,102 @@ export default function CashierPesanan() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
 
-  // Ambil data sesi & member dari Supabase
+  // Ambil data sesi, member, dan diskon aktif dari Supabase
   useEffect(() => {
-    const fetchSessionAndMembers = async () => {
+    const fetchSessionDataAndConfig = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         let currentOwnerId = 'toko_123';
-        let currentCashier = 'Dewi Lestari';
+        let currentCashier = 'Fadhil Kasir';
 
         if (session && session.user) {
-          currentCashier = session.user.user_metadata?.full_name || session.user.email || 'Kasir';
           currentOwnerId = session.user.user_metadata?.owner_id || localStorage.getItem('owner_id') || session.user.id;
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (profileData && profileData.full_name) {
+            currentCashier = profileData.full_name;
+          } else {
+            currentCashier = session.user.user_metadata?.full_name || 'Fadhil Kasir';
+          }
         } else {
           currentOwnerId = localStorage.getItem('owner_id') || 'toko_123';
         }
         setOwnerId(currentOwnerId);
         setCashierName(currentCashier);
 
-        const { data, error } = await supabase
+        // Ambil data member
+        const { data: memberData, error: memberError } = await supabase
           .from('members')
           .select('*')
           .eq('owner_id', currentOwnerId);
 
-        if (!error && data) {
-          setMembers(data);
+        if (!memberError && memberData) {
+          setMembers(memberData);
+        }
+
+        // Ambil data diskon aktif
+        const { data: discountData, error: discountError } = await supabase
+          .from('discounts')
+          .select('*')
+          .eq('owner_id', currentOwnerId)
+          .eq('status', 'aktif');
+
+        if (!discountError && discountData) {
+          setAvailableDiscounts(discountData);
         }
       } catch (err) {
-        console.error('Gagal memuat data member:', err);
+        console.error('Gagal memuat data konfigurasi pesanan:', err);
       }
     };
 
-    fetchSessionAndMembers();
+    fetchSessionDataAndConfig();
   }, []);
+
+  // Fungsi Pendaftaran Member Baru
+  const handleRegisterMember = async (e) => {
+    e.preventDefault();
+    if (!newMemberName || !newMemberPhone) {
+      alert('Nama dan No. Telepon wajib diisi!');
+      return;
+    }
+
+    setSavingMember(true);
+    try {
+      const newMemberPayload = {
+        owner_id: ownerId,
+        nama: newMemberName,
+        phone: newMemberPhone,
+        poin: 0,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('members')
+        .insert([newMemberPayload])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert('Member baru berhasil didaftarkan!');
+      setMembers((prev) => [...prev, data]);
+      setSelectedMember(data);
+      setSearchMember(data.nama);
+      setIsAddMemberModalOpen(false);
+      setNewMemberName('');
+      setNewMemberPhone('');
+    } catch (err) {
+      console.error('Gagal mendaftarkan member:', err);
+      alert('Gagal mendaftarkan member: ' + err.message);
+    } finally {
+      setSavingMember(false);
+    }
+  };
 
   const formatRupiahInput = (value) => {
     const numberString = value.replace(/[^,\d]/g, '').toString();
@@ -84,10 +156,20 @@ export default function CashierPesanan() {
     return Number(formattedStr.replace(/\./g, ''));
   };
 
-  // Kalkulasi Finansial
+  // Kalkulasi Finansial & Diskon Dinamis
   const tax = subtotal * 0.11; // Pajak 11%
-  const discount = 5000; // Contoh diskon statis/dinamis
-  const totalPay = subtotal + tax - discount;
+
+  // Hitung besaran diskon berdasarkan pilihan kasir
+  let calculatedDiscount = 0;
+  if (selectedDiscount) {
+    if (selectedDiscount.tipe === 'persen') {
+      calculatedDiscount = (subtotal * Number(selectedDiscount.nilai)) / 100;
+    } else {
+      calculatedDiscount = Number(selectedDiscount.nilai) || 0;
+    }
+  }
+
+  const totalPay = Math.max(0, subtotal + tax - calculatedDiscount);
   const amountPaid = parseRupiahNumber(amountPaidInput);
   const changeAmount = amountPaid >= totalPay ? amountPaid - totalPay : 0;
 
@@ -119,11 +201,12 @@ export default function CashierPesanan() {
             payment_method: paymentMethod,
             subtotal: subtotal,
             tax: tax,
-            discount: discount,
+            discount: calculatedDiscount,
             total_pay: totalPay,
             amount_paid: amountPaid,
             change_amount: changeAmount,
             staff_helper: staffHelper || '-',
+            type: 'Masuk',
             created_at: new Date().toISOString()
           }
         ]);
@@ -133,7 +216,6 @@ export default function CashierPesanan() {
       setIsProcessModalOpen(true);
     } catch (err) {
       console.error('Gagal menyimpan transaksi:', err);
-      // Tetap buka modal meskipun tabel belum siap secara lokal untuk keperluan preview UI
       setIsProcessModalOpen(true);
     } finally {
       setLoadingCheckout(false);
@@ -153,6 +235,12 @@ export default function CashierPesanan() {
     localStorage.removeItem('cashier_cart');
     navigate('/kasir');
   };
+
+  // Filter member berdasarkan pencarian
+  const filteredMembers = members.filter(m => 
+    m.nama?.toLowerCase().includes(searchMember.toLowerCase()) || 
+    m.phone?.includes(searchMember)
+  );
 
   return (
     <div className="bg-[#F1F2F6] text-[#181b2b] font-sans antialiased min-h-screen relative pb-32">
@@ -208,40 +296,133 @@ export default function CashierPesanan() {
           </div>
         </section>
 
-        {/* Member Card */}
+        {/* Member Card dengan Tombol Tambah (+) */}
         <section className="bg-white rounded-xl border border-[#E9EBED] p-6 flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xs text-[#86899B] uppercase tracking-wider font-medium">Pesanan Atas Nama</h2>
-            <div className="relative flex items-center bg-[#F1F2F6] rounded-lg px-3 py-1.5 border border-[#E9EBED]">
-              <span className="material-symbols-outlined text-[18px] text-[#006b54] mr-2">person_search</span>
-              <input 
-                className="bg-transparent border-none p-0 text-xs focus:ring-0 w-32 md:w-48 text-[#181b2b] placeholder:text-[#86899B] outline-none" 
-                placeholder="Cari member..." 
-                value={searchMember}
-                onChange={(e) => setSearchMember(e.target.value)}
-                type="text" 
-              />
+            
+            <div className="flex items-center gap-2">
+              <div className="relative flex items-center bg-[#F1F2F6] rounded-lg px-3 py-1.5 border border-[#E9EBED]">
+                <span className="material-symbols-outlined text-[18px] text-[#006b54] mr-2">person_search</span>
+                <input 
+                  className="bg-transparent border-none p-0 text-xs focus:ring-0 w-32 md:w-40 text-[#181b2b] placeholder:text-[#86899B] outline-none" 
+                  placeholder="Cari member..." 
+                  value={searchMember}
+                  onChange={(e) => setSearchMember(e.target.value)}
+                  type="text" 
+                />
+              </div>
+
+              {/* Tombol Plus (+) untuk Pendaftaran Member Baru */}
+              <button
+                onClick={() => setIsAddMemberModalOpen(true)}
+                className="w-9 h-9 bg-[#01a684] text-white rounded-lg flex items-center justify-center hover:opacity-90 active:scale-95 transition-all cursor-pointer border-0 shadow-sm"
+                title="Daftar Member Baru"
+              >
+                <span className="material-symbols-outlined text-[20px]">add</span>
+              </button>
             </div>
           </div>
+
           <div className="relative">
             <input 
               className="w-full bg-[#F1F2F6] border-none rounded-xl h-14 px-4 text-base font-semibold text-[#181b2b] outline-none" 
-              placeholder="Input manual atau cari member..." 
+              placeholder="Pelanggan Umum / Pilih member di atas..." 
               type="text" 
-              value={selectedMember ? selectedMember.nama : searchMember}
-              onChange={(e) => setSelectedMember({ nama: e.target.value, poin: 0 })}
+              value={selectedMember ? selectedMember.nama : (searchMember || 'Pelanggan Umum')}
+              readOnly
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <div className="flex items-center gap-1 text-[#86899B] text-xs font-medium">
                 <span className="material-symbols-outlined text-[16px] text-[#df7362]" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-                {selectedMember ? selectedMember.poin : 0} Poin
+                {selectedMember ? (selectedMember.poin || 0) : 0} Poin
               </div>
               <div className="bg-[#01a684]/10 text-[#01a684] px-2 py-1 rounded text-xs font-medium border border-[#01a684]/20">
-                Member
+                {selectedMember ? 'Member' : 'Umum'}
               </div>
             </div>
           </div>
+
+          {/* Dropdown hasil pencarian member jika mengetik di searchMember */}
+          {searchMember && !selectedMember && (
+            <div className="bg-white border border-[#E9EBED] rounded-xl shadow-md max-h-40 overflow-y-auto">
+              {filteredMembers.length === 0 ? (
+                <div className="p-3 text-xs text-gray-400 text-center">Member tidak ditemukan. Klik tombol (+) untuk mendaftar.</div>
+              ) : (
+                filteredMembers.map((m) => (
+                  <div
+                    key={m.id}
+                    onClick={() => {
+                      setSelectedMember(m);
+                      setSearchMember('');
+                    }}
+                    className="p-3 hover:bg-emerald-50 cursor-pointer text-xs flex justify-between items-center border-b border-gray-100 last:border-b-0"
+                  >
+                    <span className="font-semibold">{m.nama}</span>
+                    <span className="text-gray-400">{m.phone || '-'}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </section>
+
+        {/* Modal Pendaftaran Member Baru */}
+        {isAddMemberModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-base text-[#181b2b]">Daftar Member Baru</h3>
+                <button onClick={() => setIsAddMemberModalOpen(false)} className="text-gray-400 hover:text-gray-600 border-0 bg-transparent cursor-pointer">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleRegisterMember} className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1 font-medium">Nama Lengkap</label>
+                  <input
+                    type="text"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-[#01a684]"
+                    placeholder="Cth: Siti Aminah"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1 font-medium">No. Telepon / WhatsApp</label>
+                  <input
+                    type="tel"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-[#01a684]"
+                    placeholder="Cth: 08123456789"
+                    value={newMemberPhone}
+                    onChange={(e) => setNewMemberPhone(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddMemberModalOpen(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingMember}
+                    className="flex-1 bg-[#01a684] text-white py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
+                  >
+                    {savingMember ? 'Menyimpan...' : 'Simpan Member'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Order Details Card */}
         <section className="bg-white rounded-xl border border-[#E9EBED] p-6 flex flex-col gap-4">
@@ -258,48 +439,46 @@ export default function CashierPesanan() {
                 </li>
               ))
             ) : (
-              // Default fallback item jika diakses langsung tanpa lewat POS
-              <>
-                <li className="flex justify-between items-center py-3 border-b border-[#E9EBED]">
-                  <div className="flex items-start gap-3">
-                    <span className="text-sm font-bold text-[#181b2b] bg-[#ececff] px-2 py-0.5 rounded tabular-nums">2x</span>
-                    <span className="text-sm text-[#181b2b]">Tasty Snacks</span>
-                  </div>
-                  <span className="text-sm text-[#181b2b] tabular-nums">Rp 15.000</span>
-                </li>
-                <li className="flex justify-between items-center py-3 border-b border-[#E9EBED]">
-                  <div className="flex items-start gap-3">
-                    <span className="text-sm font-bold text-[#181b2b] bg-[#ececff] px-2 py-0.5 rounded tabular-nums">1x</span>
-                    <span className="text-sm text-[#181b2b]">Fish and Chips</span>
-                  </div>
-                  <span className="text-sm text-[#181b2b] tabular-nums">Rp 12.500</span>
-                </li>
-                <li className="flex justify-between items-center py-3">
-                  <div className="flex items-start gap-3">
-                    <span className="text-sm font-bold text-[#181b2b] bg-[#ececff] px-2 py-0.5 rounded tabular-nums">1x</span>
-                    <span className="text-sm text-[#181b2b]">Iced Matcha Latte</span>
-                  </div>
-                  <span className="text-sm text-[#181b2b] tabular-nums">Rp 35.000</span>
-                </li>
-              </>
+              <li className="text-center text-xs text-gray-400 py-4">Tidak ada item dalam keranjang.</li>
             )}
           </ul>
         </section>
 
-        {/* Billing Summary Card */}
+        {/* Billing Summary Card & Pilihan Diskon */}
         <section className="bg-white rounded-xl border border-[#E9EBED] p-6 flex flex-col gap-4">
+          
+          {/* Bagian Pilihan Diskon */}
+          <div className="flex flex-col gap-2 pb-3 border-b border-[#E9EBED]">
+            <h2 className="text-xs text-[#86899B] uppercase tracking-wider font-medium">Pilih Kupon / Diskon (Opsional)</h2>
+            <select
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-[#181b2b] outline-none focus:border-[#01a684] cursor-pointer"
+              value={selectedDiscount ? selectedDiscount.id : ''}
+              onChange={(e) => {
+                const found = availableDiscounts.find(d => d.id === e.target.value);
+                setSelectedDiscount(found || null);
+              }}
+            >
+              <option value="">-- Tanpa Diskon / Promo --</option>
+              {availableDiscounts.map((disc) => (
+                <option key={disc.id} value={disc.id}>
+                  {disc.nama} ({disc.kode}) - {disc.tipe === 'persen' ? `${disc.nilai}%` : `Rp ${formatRp(disc.nilai)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#86899B]">Subtotal</span>
-              <span className="text-sm text-[#181b2b] tabular-nums">Rp {formatRp(subtotal || 62500)}</span>
+              <span className="text-sm text-[#181b2b] tabular-nums">Rp {formatRp(subtotal)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#86899B]">Pajak (11%)</span>
-              <span className="text-sm text-[#181b2b] tabular-nums">Rp {formatRp(tax || 6875)}</span>
+              <span className="text-sm text-[#181b2b] tabular-nums">Rp {formatRp(tax)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-[#df7362]">Diskon</span>
-              <span className="text-sm text-[#df7362] tabular-nums">- Rp {formatRp(discount)}</span>
+              <span className="text-sm text-[#df7362]">Diskon {selectedDiscount ? `(${selectedDiscount.kode})` : ''}</span>
+              <span className="text-sm text-[#df7362] tabular-nums">- Rp {formatRp(calculatedDiscount)}</span>
             </div>
           </div>
           
@@ -307,7 +486,7 @@ export default function CashierPesanan() {
           
           <div className="flex justify-between items-end">
             <span className="text-lg font-bold text-[#181b2b]">Total Bayar</span>
-            <span className="text-2xl font-bold text-[#01a684] tabular-nums">Rp {formatRp(totalPay || 64375)}</span>
+            <span className="text-2xl font-bold text-[#01a684] tabular-nums">Rp {formatRp(totalPay)}</span>
           </div>
 
           <div className="flex flex-col gap-2 mt-2">
@@ -343,6 +522,7 @@ export default function CashierPesanan() {
                     <input 
                       className="w-full bg-white border border-[#E9EBED] rounded-lg h-12 pl-12 pr-4 text-base font-semibold text-[#181b2b] outline-none" 
                       type="text" 
+                      placeholder="Contoh: 100.000"
                       value={amountPaidInput}
                       onChange={(e) => setAmountPaidInput(formatRupiahInput(e.target.value))}
                     />
@@ -432,9 +612,11 @@ export default function CashierPesanan() {
                 </div>
                 <div className="border-t border-dashed border-[#bccac3] my-2"></div>
                 <div className="flex flex-col gap-2 text-left">
-                  <div className="flex justify-between text-sm font-bold"><span>2x Tasty Snacks</span></div>
-                  <div className="flex justify-between text-sm font-bold"><span>1x Fish and Chips</span></div>
-                  <div className="flex justify-between text-sm font-bold"><span>1x Iced Matcha Latte</span></div>
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm font-bold">
+                      <span>{item.qty}x {item.cartItemName || item.name}</span>
+                    </div>
+                  ))}
                 </div>
                 <div className="border-t border-dashed border-[#bccac3] my-2"></div>
                 <div className="flex flex-col gap-1 text-left text-xs">
@@ -482,32 +664,44 @@ export default function CashierPesanan() {
             <div className="flex-1 overflow-y-auto p-6 bg-[#f3f2ff]">
               <div className="bg-white p-6 shadow-sm border border-[#E9EBED] rounded-lg flex flex-col gap-4 text-center">
                 <div className="flex flex-col gap-1">
-                  <h4 className="font-bold text-lg text-[#181b2b]">Warung Kopi Sejahtera</h4>
-                  <p className="text-xs text-[#86899B]">Jl. Melati No. 123, Jakarta Selatan</p>
-                  <p className="text-xs text-[#86899B]">Telp: 0812-3456-7890</p>
+                  <h4 className="font-bold text-lg text-[#181b2b]">Fadhil Kasir Outlet</h4>
+                  <p className="text-xs text-[#86899B]">Sistem Point of Sale Profesional</p>
                 </div>
                 <div className="border-t border-dashed border-[#bccac3] my-2"></div>
                 <div className="flex flex-col gap-2 text-left">
-                  <div className="flex justify-between text-sm"><span>2x Tasty Snacks</span><span className="tabular-nums">Rp 15.000</span></div>
-                  <div className="flex justify-between text-sm"><span>1x Fish and Chips</span><span className="tabular-nums">Rp 12.500</span></div>
-                  <div className="flex justify-between text-sm"><span>1x Iced Matcha Latte</span><span className="tabular-nums">Rp 35.000</span></div>
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{item.qty}x {item.cartItemName || item.name}</span>
+                      <span className="tabular-nums">Rp {formatRp(item.price * item.qty)}</span>
+                    </div>
+                  ))}
                 </div>
                 <div className="border-t border-dashed border-[#bccac3] my-2"></div>
                 <div className="flex flex-col gap-1 text-left">
-                  <div className="flex justify-between text-sm"><span className="text-[#86899B]">Subtotal</span><span className="tabular-nums">Rp {formatRp(subtotal || 62500)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-[#86899B]">Pajak (11%)</span><span className="tabular-nums">Rp {formatRp(tax || 6875)}</span></div>
-                  <div className="flex justify-between font-bold text-lg mt-1"><span>Total</span><span className="text-[#01a684] tabular-nums">Rp {formatRp(totalPay || 69375)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-[#86899B]">Subtotal</span><span className="tabular-nums">Rp {formatRp(subtotal)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-[#86899B]">Pajak (11%)</span><span className="tabular-nums">Rp {formatRp(tax)}</span></div>
+                  {calculatedDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-[#df7362]">
+                      <span>Diskon ({selectedDiscount?.kode})</span>
+                      <span className="tabular-nums">- Rp {formatRp(calculatedDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg mt-1"><span>Total</span><span className="text-[#01a684] tabular-nums">Rp {formatRp(totalPay)}</span></div>
                 </div>
                 <div className="border-t border-[#E9EBED] my-2"></div>
                 <div className="flex flex-col gap-1 text-left text-xs">
                   <div className="flex justify-between"><span className="text-[#86899B]">Metode</span><span>{paymentMethod}</span></div>
-                  <div className="flex justify-between"><span className="text-[#86899B]">Bayar</span><span className="tabular-nums">Rp {amountPaidInput}</span></div>
-                  <div className="flex justify-between font-bold"><span className="text-[#86899B]">Kembali</span><span className="text-[#006b54] tabular-nums">Rp {formatRp(changeAmount)}</span></div>
+                  {paymentMethod === 'Cash' && (
+                    <>
+                      <div className="flex justify-between"><span className="text-[#86899B]">Bayar</span><span className="tabular-nums">Rp {amountPaidInput}</span></div>
+                      <div className="flex justify-between font-bold"><span className="text-[#86899B]">Kembali</span><span className="text-[#006b54] tabular-nums">Rp {formatRp(changeAmount)}</span></div>
+                    </>
+                  )}
                 </div>
                 <div className="border-t border-dashed border-[#bccac3] my-2"></div>
                 <div className="flex flex-col gap-1">
                   <p className="text-xs italic">Terima kasih atas kunjungan Anda!</p>
-                  <p className="text-[10px] text-[#86899B] uppercase tracking-widest">Powered by Kasir Pro</p>
+                  <p className="text-[10px] text-[#86899B] uppercase tracking-widest">Powered by Fadhil Kasir</p>
                 </div>
               </div>
             </div>
@@ -520,15 +714,6 @@ export default function CashierPesanan() {
                 <span className="material-symbols-outlined">print</span>
                 Cetak Struk & Selesai
               </button>
-              <a 
-                className="w-full border border-[#01a684] text-[#01a684] h-12 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform text-decoration-none" 
-                href={`https://wa.me/6281234567890?text=Terima%20kasih%20telah%20berbelanja%20di%20Warung%20Kopi%20Sejahtera.%20Total%20belanja%20Anda%20adalah%20Rp%20${formatRp(totalPay)}.`} 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <span className="material-symbols-outlined">chat</span>
-                Kirim via WhatsApp
-              </a>
             </div>
           </div>
         </div>
