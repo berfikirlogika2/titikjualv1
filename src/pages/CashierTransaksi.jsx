@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, ChevronUp, ChevronDown, Lock, Unlock, ArrowDownRight, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronUp, ChevronDown, Lock, Unlock, ArrowDownRight, FileText } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -11,26 +11,22 @@ export default function CashierTransaksi() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ masuk: 0, keluar: 0, countMasuk: 0, countKeluar: 0 });
 
-  // State Profil Kasir yang sinkron
   const [profile, setProfile] = useState({
     name: 'Fadhil Kasir',
     role: 'Kasir'
   });
 
-  // State Manajemen Shift (Open / Close Shift)
   const [currentShift, setCurrentShift] = useState(null);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [modalInput, setModalInput] = useState('');
   const [closingInput, setClosingInput] = useState('');
 
-  // State Modal Pengeluaran Dadakan & Struk
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseFile, setExpenseFile] = useState(null);
   const [submittingExpense, setSubmittingExpense] = useState(false);
 
-  // Fungsi Format Titik Ribuan untuk Input Angka
   const formatRupiahInput = (value) => {
     const numberString = value.replace(/[^,\d]/g, '').toString();
     const split = numberString.split(',');
@@ -54,7 +50,6 @@ export default function CashierTransaksi() {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Ambil profil kasir dan cek status shift aktif saat komponen dimuat
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -93,7 +88,6 @@ export default function CashierTransaksi() {
     fetchInitialData();
   }, []);
 
-  // Ambil data transaksi berdasarkan filter waktu
   useEffect(() => {
     const fetchTransactions = async () => {
       setLoading(true);
@@ -160,7 +154,6 @@ export default function CashierTransaksi() {
     fetchTransactions();
   }, [activeFilter, profile.name]);
 
-  // Fungsi Buka Shift (Open Shift)
   const handleOpenShift = async (e) => {
     e.preventDefault();
     const openingBal = parseRupiahNumber(modalInput);
@@ -196,7 +189,6 @@ export default function CashierTransaksi() {
     }
   };
 
-  // Fungsi Tutup Shift (Close Shift) dengan Rekonsiliasi Pintar
   const handleCloseShift = async (e) => {
     e.preventDefault();
     const physicalCash = parseRupiahNumber(closingInput);
@@ -233,7 +225,6 @@ export default function CashierTransaksi() {
     }
   };
 
-  // Fungsi Kompresi Gambar Client-Side (Agar Server Ramah & Murah)
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -277,7 +268,6 @@ export default function CashierTransaksi() {
     });
   };
 
-  // Fungsi Simpan Pengeluaran Dadakan & Upload Struk
   const handleSaveExpense = async (e) => {
     e.preventDefault();
     const amountVal = parseRupiahNumber(expenseAmount);
@@ -349,27 +339,28 @@ export default function CashierTransaksi() {
   };
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[160px] lg:pb-12 lg:pl-24 lg:pr-8">
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[120px] lg:pb-12">
       
       {/* MainHeader */}
-      <header className="pt-8 pb-4 px-6 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90">
+      <header className="sticky pt-6 pb-4 px-4 md:px-8 lg:px-12 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90 border-b border-gray-200/50">
         <button 
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0"
+          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0 shrink-0"
         >
-          <Menu size={18} />
+          {/* Perubahan Disini: Icon Back / ArrowLeft */}
+          <ArrowLeft size={18} />
         </button>
-        <h1 className="text-lg font-semibold flex-1 px-4 truncate text-center">Kasir Pro - Transaksi &amp; Shift</h1>
-        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
+        <h1 className="text-sm md:text-base font-semibold flex-1 px-4 truncate text-center">Kasir Pro - Transaksi &amp; Shift</h1>
+        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-emerald-100 bg-emerald-50 flex items-center justify-center font-bold text-[#01A684] shrink-0">
           {getInitials(profile.name)}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8 flex flex-col gap-4">
+      <main className="w-full max-w-4xl lg:max-w-6xl mx-auto px-4 md:px-8 flex flex-col gap-4 mt-4">
         
         {/* Shift Control & Expense Action Banner */}
-        <div className="px-6 pt-2 flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center justify-between flex-1">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentShift ? 'bg-emerald-100 text-[#01A684]' : 'bg-amber-100 text-amber-600'}`}>
@@ -386,7 +377,7 @@ export default function CashierTransaksi() {
             </div>
             <button
               onClick={() => setShowShiftModal(true)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold text-white border-0 cursor-pointer shadow-xs transition-colors ${currentShift ? 'bg-red-500 hover:bg-red-600' : 'bg-[#01A684] hover:opacity-90'}`}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold text-white border-0 cursor-pointer shadow-xs transition-colors shrink-0 ml-2 ${currentShift ? 'bg-red-500 hover:bg-red-600' : 'bg-[#01A684] hover:opacity-90'}`}
             >
               {currentShift ? 'Tutup Shift' : 'Buka Shift'}
             </button>
@@ -394,17 +385,17 @@ export default function CashierTransaksi() {
 
           <button
             onClick={() => setShowExpenseModal(true)}
-            className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-4 py-3 rounded-2xl text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 shadow-xs transition-colors"
+            className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-4 py-3 rounded-2xl text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 shadow-xs transition-colors sm:w-auto"
           >
             <ArrowDownRight size={16} />
-            Catat Beli Bahan / Pengeluaran
+            Catat Pengeluaran
           </button>
         </div>
 
         {/* Modal Open/Close Shift */}
         {showShiftModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl space-y-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl space-y-4">
               <h3 className="text-base font-bold text-[#1A1A1A]">
                 {currentShift ? 'Tutup Shift (Close Shift)' : 'Buka Shift (Open Shift)'}
               </h3>
@@ -418,7 +409,7 @@ export default function CashierTransaksi() {
                     <div className="flex justify-between"><span>Modal Awal:</span> <span className="font-semibold">Rp {formatRp(currentShift.opening_balance)}</span></div>
                     <div className="flex justify-between"><span>Total Masuk (Tunai):</span> <span className="font-semibold text-[#01A684]">+ Rp {formatRp(summary.masuk)}</span></div>
                     <div className="flex justify-between"><span>Total Keluar:</span> <span className="font-semibold text-red-500">- Rp {formatRp(summary.keluar)}</span></div>
-                    <div className="border-t border-gray-200 pt-1 flex justify-between font-bold">
+                    <div className="border-t border-gray-200 pt-1 flex justify-between font-bold mt-2">
                       <span>Uang Seharusnya:</span> 
                       <span>Rp {formatRp(Number(currentShift.opening_balance) + summary.masuk - summary.keluar)}</span>
                     </div>
@@ -449,7 +440,7 @@ export default function CashierTransaksi() {
                       type="submit" 
                       className="flex-1 bg-red-500 text-white py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0 shadow-xs"
                     >
-                      Konfirmasi Tutup Shift
+                      Tutup Shift
                     </button>
                   </div>
                 </form>
@@ -495,8 +486,8 @@ export default function CashierTransaksi() {
 
         {/* Modal Catat Pengeluaran Dadakan & Upload Struk */}
         {showExpenseModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl space-y-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl space-y-4">
               <h3 className="text-base font-bold text-[#1A1A1A]">Catat Pengeluaran Dadakan</h3>
               <p className="text-xs text-gray-500">
                 Gunakan ini jika kasir mendadak beli bahan baku atau keperluan operasional dari laci.
@@ -553,7 +544,7 @@ export default function CashierTransaksi() {
                     disabled={submittingExpense}
                     className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0 shadow-xs"
                   >
-                    {submittingExpense ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                    {submittingExpense ? 'Menyimpan...' : 'Simpan'}
                   </button>
                 </div>
               </form>
@@ -562,101 +553,96 @@ export default function CashierTransaksi() {
         )}
 
         {/* Summary Card */}
-        <div className="px-6">
-          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-xs">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col pr-3 border-r border-gray-100">
-                <span className="text-xs text-gray-500 block mb-1">Masuk</span>
-                <h2 className="font-bold text-base lg:text-lg text-[#01A684] truncate">+ Rp {formatRp(summary.masuk)}</h2>
-                <div className="flex items-center gap-1 mt-2 text-gray-500">
-                  <ChevronUp size={12} className="text-[#01A684]" />
-                  <span className="text-xs">{summary.countMasuk} Transaksi</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col pl-3">
-                <span className="text-xs text-gray-500 block mb-1">Keluar</span>
-                <h2 className="font-bold text-base lg:text-lg text-red-500 truncate">- Rp {formatRp(summary.keluar)}</h2>
-                <div className="flex items-center gap-1 mt-2 text-gray-500">
-                  <ChevronDown size={12} className="text-red-500" />
-                  <span className="text-xs">{summary.countKeluar} Transaksi</span>
-                </div>
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-xs">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col pr-4 border-r border-gray-100">
+              <span className="text-xs text-gray-500 block mb-1">Total Masuk</span>
+              <h2 className="font-bold text-base md:text-xl lg:text-2xl text-[#01A684] truncate">+ Rp {formatRp(summary.masuk)}</h2>
+              <div className="flex items-center gap-1 mt-2 text-gray-500">
+                <ChevronUp size={12} className="text-[#01A684]" />
+                <span className="text-xs">{summary.countMasuk} Transaksi</span>
               </div>
             </div>
-          </div>
 
-          {/* Filter Pills */}
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 mt-3">
-            {['Bulan Ini', 'Hari Ini', 'Custom'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 rounded-full text-xs font-medium cursor-pointer border-0 transition-all ${
-                  activeFilter === filter ? 'bg-[#01A684] text-white shadow-sm' : 'bg-white border border-gray-100 text-gray-500'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+            <div className="flex flex-col pl-2">
+              <span className="text-xs text-gray-500 block mb-1">Total Keluar</span>
+              <h2 className="font-bold text-base md:text-xl lg:text-2xl text-red-500 truncate">- Rp {formatRp(summary.keluar)}</h2>
+              <div className="flex items-center gap-1 mt-2 text-gray-500">
+                <ChevronDown size={12} className="text-red-500" />
+                <span className="text-xs">{summary.countKeluar} Transaksi</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Transactions Table */}
-        <div className="px-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto hide-scrollbar">
-              <table className="w-full text-left min-w-[650px]">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr className="text-xs text-gray-500">
-                    <th className="p-4 font-medium">ID Transaksi</th>
-                    <th className="p-4 font-medium">Tanggal &amp; Waktu</th>
-                    <th className="p-4 font-medium">Kasir / Keterangan</th>
-                    <th className="p-4 font-medium text-right">Jumlah (Rp)</th>
+        {/* Filter Pills */}
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+          {['Bulan Ini', 'Hari Ini', 'Custom'].map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`px-4 py-2 rounded-full text-xs font-medium cursor-pointer border-0 transition-all ${
+                activeFilter === filter ? 'bg-[#01A684] text-white shadow-sm' : 'bg-white border border-gray-100 text-gray-500'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        {/* Transactions Table - Dengan lebar optimal */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto hide-scrollbar">
+            <table className="w-full text-left min-w-[650px]">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr className="text-xs text-gray-500">
+                  <th className="p-4 font-medium">ID Transaksi</th>
+                  <th className="p-4 font-medium">Tanggal &amp; Waktu</th>
+                  <th className="p-4 font-medium">Kasir / Keterangan</th>
+                  <th className="p-4 font-medium text-right">Jumlah (Rp)</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan="4" className="p-8 text-center text-xs text-gray-500">Memuat data transaksi kasir...</td>
                   </tr>
-                </thead>
-                <tbody className="text-sm divide-y divide-gray-100">
-                  {loading ? (
-                    <tr>
-                      <td colSpan="4" className="p-8 text-center text-xs text-gray-500">Memuat data transaksi kasir...</td>
+                ) : transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="p-8 text-center text-xs text-gray-500">Belum ada riwayat transaksi tercatat.</td>
+                  </tr>
+                ) : (
+                  transactions.map((trx) => (
+                    <tr key={trx.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4 text-[#1A1A1A] font-mono text-xs font-semibold">
+                        {trx.code}
+                        {trx.receipt_url && (
+                          <a href={trx.receipt_url} target="_blank" rel="noreferrer" className="block text-[10px] text-[#01A684] hover:underline flex items-center gap-0.5 mt-0.5">
+                            <FileText size={10} /> Lihat Struk
+                          </a>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-500 text-xs">{trx.date}</td>
+                      <td className="p-4 text-[#1A1A1A] text-xs font-medium">
+                        {trx.staff}
+                        {trx.notes && <span className="block text-[11px] text-gray-400 mt-0.5">{trx.notes}</span>}
+                      </td>
+                      <td className={`p-4 text-right font-bold text-xs ${trx.isMasuk ? 'text-[#01A684]' : 'text-red-500'}`}>
+                        {trx.isMasuk ? '+ ' : '- '}Rp {formatRp(trx.amount)}
+                      </td>
                     </tr>
-                  ) : transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="p-8 text-center text-xs text-gray-500">Belum ada riwayat transaksi tercatat.</td>
-                    </tr>
-                  ) : (
-                    transactions.map((trx) => (
-                      <tr key={trx.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 text-[#1A1A1A] font-mono text-xs font-semibold">
-                          {trx.code}
-                          {trx.receipt_url && (
-                            <a href={trx.receipt_url} target="_blank" rel="noreferrer" className="block text-[10px] text-[#01A684] hover:underline flex items-center gap-0.5 mt-0.5">
-                              <FileText size={10} /> Lihat Struk
-                            </a>
-                          )}
-                        </td>
-                        <td className="p-4 text-gray-500 text-xs">{trx.date}</td>
-                        <td className="p-4 text-[#1A1A1A] text-xs font-medium">
-                          {trx.staff}
-                          {trx.notes && <span className="block text-[11px] text-gray-400 mt-0.5">{trx.notes}</span>}
-                        </td>
-                        <td className={`p-4 text-right font-bold text-xs ${trx.isMasuk ? 'text-[#01A684]' : 'text-red-500'}`}>
-                          {trx.isMasuk ? '+ ' : '- '}Rp {formatRp(trx.amount)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-            {/* Table Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
-              <span className="text-xs text-gray-500">Menampilkan {transactions.length} data transaksi</span>
-              <div className="flex gap-1">
-                <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#01A684] text-white text-xs font-bold border-0">1</button>
-              </div>
+          {/* Table Footer */}
+          <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
+            <span className="text-xs text-gray-500">Menampilkan {transactions.length} data transaksi</span>
+            <div className="flex gap-1">
+              <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#01A684] text-white text-xs font-bold border-0 cursor-pointer">1</button>
             </div>
-
           </div>
         </div>
 

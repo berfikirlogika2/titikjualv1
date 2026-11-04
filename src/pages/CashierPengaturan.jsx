@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, User, LogOut, Lock, Save } from 'lucide-react';
+import { ArrowLeft, User, LogOut, Lock, Save } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -155,33 +155,37 @@ export default function CashierPengaturan() {
   };
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[160px] lg:pb-12 lg:pl-24 lg:pr-8">
+    // PERBAIKAN: Padding lg:pl-24 lg:pr-8 dihapus agar layout tidak menyempit di iPad
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[120px] lg:pb-12">
       
       {/* MainHeader */}
-      <header className="pt-8 pb-4 px-6 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90">
+      <header className="sticky pt-6 pb-4 px-4 md:px-8 lg:px-12 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90 border-b border-gray-200/50">
         <button 
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0"
+          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0 shrink-0"
         >
-          <Menu size={18} />
+          {/* Perubahan Disini: Icon Menu -> ArrowLeft */}
+          <ArrowLeft size={18} />
         </button>
 
-        <h1 className="text-lg font-semibold flex-1 px-2 truncate text-center">Pengaturan Profil</h1>
+        <h1 className="text-sm md:text-base font-semibold flex-1 px-4 truncate text-center">Pengaturan Profil</h1>
 
-        <div className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium mr-3">
-          <User size={14} />
-          <span>Kasir</span>
-        </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full text-xs font-medium">
+            <User size={14} />
+            <span>Kasir</span>
+          </div>
 
-        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-[#01A684]/10 flex items-center justify-center font-bold text-[#01A684]">
-          {getInitials(profile.name)}
+          <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-[#01A684]/10 flex items-center justify-center font-bold text-[#01A684] shrink-0">
+            {getInitials(profile.name)}
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8">
-        <div className="px-6 pt-4 pb-20 space-y-4">
-          
+      {/* Main Content (Menggunakan container max-w-4xl agar proporsional) */}
+      <main className="w-full max-w-4xl lg:max-w-6xl mx-auto px-4 md:px-8 flex flex-col gap-4 mt-4">
+        
+        <div className="space-y-4">
           {/* Profile Card Section (Menggunakan Inisial Tanpa Foto Dummy) */}
           <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs flex flex-col items-center text-center">
             <div className="relative mb-3">
@@ -198,7 +202,8 @@ export default function CashierPengaturan() {
             <h3 className="text-sm font-semibold text-[#1A1A1A] mb-2 flex items-center gap-2">
               <User size={16} className="text-[#01A684]" /> Informasi Akun
             </h3>
-            <div className="space-y-3">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Nama Lengkap</label>
                 <input 
@@ -237,51 +242,56 @@ export default function CashierPengaturan() {
                   disabled
                 />
               </div>
-              <button 
-                type="submit" 
-                disabled={saving}
-                className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-2 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-2"
-              >
-                <Save size={16} />
-                {saving ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
-              </button>
             </div>
+
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="w-full bg-[#01A684] text-white py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-4 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
+            </button>
           </form>
 
           {/* Security Section (Pembaruan Kata Sandi yang Lebih Rapi) */}
-          <form onSubmit={handleUpdatePassword} className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs space-y-3">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-2 flex items-center gap-2">
+          <form onSubmit={handleUpdatePassword} className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs space-y-4">
+            <h3 className="text-sm font-semibold text-[#1A1A1A] flex items-center gap-2">
               <Lock size={16} className="text-[#01A684]" /> Perbarui Kata Sandi
             </h3>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Kata Sandi Baru</label>
-              <input 
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-                placeholder="Minimal 6 karakter" 
-                type="password"
-                value={passwords.newPass}
-                onChange={(e) => setPasswords({...passwords, newPass: e.target.value})}
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Kata Sandi Baru</label>
+                <input 
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
+                  placeholder="Minimal 6 karakter" 
+                  type="password"
+                  value={passwords.newPass}
+                  onChange={(e) => setPasswords({...passwords, newPass: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Konfirmasi Kata Sandi Baru</label>
+                <input 
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
+                  placeholder="Ulangi kata sandi baru" 
+                  type="password"
+                  value={passwords.confirmPass}
+                  onChange={(e) => setPasswords({...passwords, confirmPass: e.target.value})}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Konfirmasi Kata Sandi Baru</label>
-              <input 
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-[#01A684] focus:border-[#01A684] outline-none" 
-                placeholder="Ulangi kata sandi baru" 
-                type="password"
-                value={passwords.confirmPass}
-                onChange={(e) => setPasswords({...passwords, confirmPass: e.target.value})}
-              />
-            </div>
+
             <button 
               type="submit" 
-              className="w-full bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-2 cursor-pointer border-0 shadow-xs"
+              className="w-full bg-[#01A684] text-white py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-colors mt-4 cursor-pointer border-0 shadow-xs"
             >
               Ubah Kata Sandi
             </button>
           </form>
 
-          {/* App Preferences (Mode Gelap Dihilangkan) */}
+          {/* App Preferences */}
           <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-xs">
             <h3 className="text-sm font-semibold text-[#1A1A1A] mb-4">Preferensi Aplikasi</h3>
             <div className="flex items-center justify-between">
@@ -289,15 +299,15 @@ export default function CashierPengaturan() {
               <button 
                 type="button"
                 onClick={() => setNotifSystem(!notifSystem)}
-                className={`w-10 h-6 rounded-full relative transition-colors cursor-pointer border-0 ${notifSystem ? 'bg-[#01A684]' : 'bg-gray-300'}`}
+                className={`w-12 h-7 rounded-full relative transition-colors cursor-pointer border-0 ${notifSystem ? 'bg-[#01A684]' : 'bg-gray-300'}`}
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifSystem ? 'right-1' : 'left-1'}`} />
+                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${notifSystem ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
           </div>
 
           {/* Tombol Logout di Paling Bawah */}
-          <div className="pt-2">
+          <div className="pt-2 pb-6">
             <button 
               onClick={handleLogout}
               className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-[20px] text-sm font-semibold hover:bg-red-100 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-xs"

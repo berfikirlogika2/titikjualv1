@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, PlusCircle, Edit3, X } from 'lucide-react';
+import { ArrowLeft, Plus, PlusCircle, Edit3, X } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -82,7 +82,6 @@ export default function CashierStok() {
           const isMenipis = stock <= 5;
           if (isMenipis) menipisCount++;
 
-          // Parsing Varian jika ada
           let rawVariants = item.varian || item.variants || item.variasi || item.options || [];
           if (typeof rawVariants === 'string') {
             try {
@@ -97,13 +96,11 @@ export default function CashierStok() {
             price: Number(v.hargaJual || v.price || v.harga || v.harga_jual || v.amount || 0)
           })) : [];
 
-          // Ambil harga dasar atau ambil dari harga varian pertama jika harga dasar 0
           let basePrice = Number(item.harga_jual || item.price || item.harga || item.amount || 0);
           if (variants.length > 0 && basePrice === 0) {
             basePrice = variants[0].price;
           }
 
-          // Ambil nama produk dengan fallback yang akurat
           const productName = item.nama || item.name || item.nama_produk || 'Produk Tanpa Nama';
           const productCategory = item.kategori || item.category || 'Umum';
 
@@ -242,73 +239,76 @@ export default function CashierStok() {
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[160px] lg:pb-12 lg:pl-24 lg:pr-8">
+    // PERBAIKAN: Padding responsif dan max-w diatur agar tidak menyempit.
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[120px] lg:pb-12">
       
       {/* MainHeader */}
-      <header className="pt-8 pb-4 px-6 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90">
+      <header className="sticky pt-6 pb-4 px-4 md:px-8 lg:px-12 top-0 backdrop-blur-md z-40 flex items-center justify-between bg-[#F1F2F6]/90 border-b border-gray-200/50">
         <button 
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0"
+          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors cursor-pointer border-0 shrink-0"
         >
-          <Menu size={18} />
+          {/* Perubahan Disini: Icon Back / ArrowLeft */}
+          <ArrowLeft size={18} />
         </button>
 
-        <h1 className="text-lg font-semibold flex-1 px-2 truncate text-center">Manajemen Stok</h1>
+        <h1 className="text-sm md:text-base font-semibold flex-1 px-4 truncate text-center">Manajemen Stok</h1>
 
-        <div className="flex items-center gap-1.5 bg-emerald-50 text-[#01A684] px-3 py-1 rounded-full text-xs font-medium mr-3 border border-emerald-200">
-          <span className="material-symbols-outlined text-sm">verified_user</span>
-          <span>Kasir Akses Aktif</span>
-        </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 text-[#01A684] px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-200">
+            <span className="material-symbols-outlined text-sm">verified_user</span>
+            <span>Kasir Akses Aktif</span>
+          </div>
 
-        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684]">
-          FK
+          <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684] shrink-0">
+            FK
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="w-full max-w-md mx-auto lg:max-w-full lg:px-8">
+      <main className="w-full max-w-4xl lg:max-w-6xl mx-auto px-4 md:px-8 flex flex-col gap-4 mt-4">
         
-        <div className="px-6 pt-4 pb-2">
-          
+        <div>
           {/* Summary Card */}
-          <div className="bg-white rounded-[20px] p-[24px] border border-gray-100 mb-4 shadow-xs">
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 mb-4 shadow-xs">
             <div className="grid grid-cols-3 gap-4">
               <div className="flex flex-col pr-4 border-r border-gray-100">
                 <span className="text-xs text-gray-500 block mb-1">Total Produk</span>
-                <h2 className="font-bold text-lg text-[#1A1A1A] tabular-nums">{stats.totalProduk}</h2>
+                <h2 className="font-bold text-lg md:text-xl lg:text-2xl text-[#1A1A1A] tabular-nums">{stats.totalProduk}</h2>
               </div>
               <div className="flex flex-col px-4 border-r border-gray-100">
                 <span className="text-xs text-gray-500 block mb-1">Stok Menipis</span>
-                <h2 className="font-bold text-lg text-red-500 tabular-nums">{stats.stokMenipis}</h2>
+                <h2 className="font-bold text-lg md:text-xl lg:text-2xl text-red-500 tabular-nums">{stats.stokMenipis}</h2>
               </div>
               <div className="flex flex-col pl-4">
                 <span className="text-xs text-gray-500 block mb-1">Bahan Baku</span>
-                <h2 className="font-bold text-lg text-[#1A1A1A] tabular-nums">{stats.totalBahan}</h2>
+                <h2 className="font-bold text-lg md:text-xl lg:text-2xl text-[#1A1A1A] tabular-nums">{stats.totalBahan}</h2>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <button 
               onClick={() => setIsAddProductModalOpen(true)}
-              className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:opacity-90 transition-colors cursor-pointer border-0"
+              className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:opacity-90 transition-colors cursor-pointer border-0"
             >
               <Plus size={18} /> Tambah Produk
             </button>
             <button 
               onClick={() => setIsAddIngredientModalOpen(true)}
-              className="flex-1 bg-white border border-[#01A684] text-[#01A684] py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:bg-emerald-50 transition-colors cursor-pointer"
+              className="flex-1 bg-white border border-[#01A684] text-[#01A684] py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:bg-emerald-50 transition-colors cursor-pointer"
             >
               <PlusCircle size={18} /> Tambah Bahan
             </button>
           </div>
 
           {/* Tab Switcher */}
-          <div className="bg-gray-100 p-1 rounded-xl flex mb-4">
+          <div className="bg-gray-100 p-1.5 rounded-xl flex mb-4">
             <button
               onClick={() => setActiveTab('produk')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer border-0 ${
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all cursor-pointer border-0 ${
                 activeTab === 'produk' ? 'bg-white shadow-xs text-[#1A1A1A]' : 'text-gray-500 bg-transparent hover:text-[#1A1A1A]'
               }`}
             >
@@ -316,7 +316,7 @@ export default function CashierStok() {
             </button>
             <button
               onClick={() => setActiveTab('bahan')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer border-0 ${
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all cursor-pointer border-0 ${
                 activeTab === 'bahan' ? 'bg-white shadow-xs text-[#1A1A1A]' : 'text-gray-500 bg-transparent hover:text-[#1A1A1A]'
               }`}
             >
@@ -326,11 +326,10 @@ export default function CashierStok() {
 
         </div>
 
-        <div className="px-6 mt-2 mb-20">
-          
+        <div>
           {/* TAB 1: DAFTAR PRODUK */}
           {activeTab === 'produk' && (
-            <div className="bg-white rounded-[20px] border border-gray-100 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
                 <table className="w-full text-left min-w-[700px]">
                   <thead className="bg-gray-50 border-b border-gray-100">
@@ -362,7 +361,7 @@ export default function CashierStok() {
                           </td>
                           <td className="p-4 text-[#1A1A1A] text-xs tabular-nums">Rp {formatRp(item.harga)}</td>
                           <td className="p-4 text-right">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium inline-block ${
                               item.status === 'Tersedia' ? 'bg-[#E6F6F3] text-[#01A684]' : 'bg-red-100 text-red-600'
                             }`}>
                               {item.status}
@@ -375,7 +374,7 @@ export default function CashierStok() {
                                 setNewStockValue(item.stok);
                                 setIsEditModalOpen(true);
                               }} 
-                              className="text-[#01A684] hover:opacity-85 cursor-pointer border-0 bg-transparent"
+                              className="text-[#01A684] hover:opacity-85 cursor-pointer border-0 bg-transparent inline-flex justify-end w-full"
                               title="Edit Stok"
                             >
                               <Edit3 size={16} />
@@ -392,7 +391,7 @@ export default function CashierStok() {
 
           {/* TAB 2: BAHAN BAKU */}
           {activeTab === 'bahan' && (
-            <div className="bg-white rounded-[20px] border border-gray-100 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
                 <table className="w-full text-left min-w-[700px]">
                   <thead className="bg-gray-50 border-b border-gray-100">
@@ -424,7 +423,7 @@ export default function CashierStok() {
                           </td>
                           <td className="p-4 text-gray-500 text-xs">{item.satuan}</td>
                           <td className="p-4 text-right">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium inline-block ${
                               item.status === 'Aman' ? 'bg-[#E6F6F3] text-[#01A684]' : 'bg-red-100 text-red-600'
                             }`}>
                               {item.status}
@@ -437,7 +436,7 @@ export default function CashierStok() {
                                 setNewStockValue(item.stok);
                                 setIsEditModalOpen(true);
                               }} 
-                              className="text-[#01A684] hover:opacity-85 cursor-pointer border-0 bg-transparent"
+                              className="text-[#01A684] hover:opacity-85 cursor-pointer border-0 bg-transparent inline-flex justify-end w-full"
                               title="Edit Stok Bahan"
                             >
                               <Edit3 size={16} />
@@ -458,8 +457,8 @@ export default function CashierStok() {
 
       {/* MODAL EDIT STOK */}
       {isEditModalOpen && editItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-base text-[#1A1A1A]">Edit Stok: {editItem.nama}</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 border-0 bg-transparent cursor-pointer">
@@ -467,30 +466,30 @@ export default function CashierStok() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveStockEdit} className="flex flex-col gap-3">
+            <form onSubmit={handleSaveStockEdit} className="flex flex-col gap-4">
               <div>
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Jumlah Stok Baru</label>
                 <input
                   type="number"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-[#01A684]"
                   value={newStockValue}
                   onChange={(e) => setNewStockValue(e.target.value)}
                   required
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0"
+                  className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl text-xs font-bold cursor-pointer border-0"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submittingEdit}
-                  className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
+                  className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
                 >
                   {submittingEdit ? 'Menyimpan...' : 'Simpan Stok'}
                 </button>
@@ -502,8 +501,8 @@ export default function CashierStok() {
 
       {/* MODAL TAMBAH PRODUK */}
       {isAddProductModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-base text-[#1A1A1A]">Tambah Produk Baru</h3>
               <button onClick={() => setIsAddProductModalOpen(false)} className="text-gray-400 hover:text-gray-600 border-0 bg-transparent cursor-pointer">
@@ -516,7 +515,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Nama Produk</label>
                 <input
                   type="text"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: Kopi Susu Aren"
                   value={prodName}
                   onChange={(e) => setProdName(e.target.value)}
@@ -527,7 +526,7 @@ export default function CashierStok() {
               <div>
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Kategori</label>
                 <select
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   value={prodCategory}
                   onChange={(e) => setProdCategory(e.target.value)}
                 >
@@ -541,7 +540,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Stok Awal</label>
                 <input
                   type="number"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: 50"
                   value={prodStock}
                   onChange={(e) => setProdStock(e.target.value)}
@@ -553,7 +552,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Harga Jual (Rp)</label>
                 <input
                   type="number"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: 18000"
                   value={prodPrice}
                   onChange={(e) => setProdPrice(e.target.value)}
@@ -565,14 +564,14 @@ export default function CashierStok() {
                 <button
                   type="button"
                   onClick={() => setIsAddProductModalOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0"
+                  className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl text-xs font-bold cursor-pointer border-0"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submittingProd}
-                  className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
+                  className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
                 >
                   {submittingProd ? 'Menyimpan...' : 'Simpan Produk'}
                 </button>
@@ -584,8 +583,8 @@ export default function CashierStok() {
 
       {/* MODAL TAMBAH BAHAN BAKU */}
       {isAddIngredientModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-base text-[#1A1A1A]">Tambah Bahan Baku Baru</h3>
               <button onClick={() => setIsAddIngredientModalOpen(false)} className="text-gray-400 hover:text-gray-600 border-0 bg-transparent cursor-pointer">
@@ -598,7 +597,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Nama Bahan Baku</label>
                 <input
                   type="text"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: Biji Kopi Robusta"
                   value={ingName}
                   onChange={(e) => setIngName(e.target.value)}
@@ -610,7 +609,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Kategori</label>
                 <input
                   type="text"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: Bahan Utama"
                   value={ingCategory}
                   onChange={(e) => setIngCategory(e.target.value)}
@@ -622,7 +621,7 @@ export default function CashierStok() {
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Stok Awal</label>
                 <input
                   type="number"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   placeholder="Cth: 10"
                   value={ingStock}
                   onChange={(e) => setIngStock(e.target.value)}
@@ -633,7 +632,7 @@ export default function CashierStok() {
               <div>
                 <label className="text-xs text-gray-500 block mb-1 font-medium">Satuan</label>
                 <select
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-[#01A684]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#01A684]"
                   value={ingUnit}
                   onChange={(e) => setIngUnit(e.target.value)}
                 >
@@ -649,14 +648,14 @@ export default function CashierStok() {
                 <button
                   type="button"
                   onClick={() => setIsAddIngredientModalOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0"
+                  className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl text-xs font-bold cursor-pointer border-0"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submittingIng}
-                  className="flex-1 bg-[#01A684] text-white py-2.5 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
+                  className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-xs font-bold cursor-pointer border-0 shadow-sm"
                 >
                   {submittingIng ? 'Menyimpan...' : 'Simpan Bahan'}
                 </button>

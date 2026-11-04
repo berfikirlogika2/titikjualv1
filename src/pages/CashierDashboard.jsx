@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2, Menu, Edit3 } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ShoppingBag, LogOut, CheckCircle2, Menu, Edit3, Settings } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -12,8 +12,18 @@ export default function CashierDashboard() {
   
   const [initials, setInitials] = useState('FK');
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Load products directly from localStorage to eliminate initial loading
+  const [products, setProducts] = useState(() => {
+    try {
+      const cachedProducts = localStorage.getItem('cashier_products');
+      return cachedProducts ? JSON.parse(cachedProducts) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  
+  // Set loading to true ONLY if there are no cached products
+  const [loading, setLoading] = useState(products.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
@@ -51,10 +61,9 @@ export default function CashierDashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sinkronisasi data dari tabel profiles Supabase (Fadhil Kasir / FK)
+  // Background Sync: Ambil data terbaru dari Supabase tanpa mengganggu UI
   useEffect(() => {
     const initCashierSession = async () => {
-      setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         let currentOwnerId = 'toko_123';
@@ -64,7 +73,6 @@ export default function CashierDashboard() {
           currentOwnerId = session.user.id;
           setOwnerId(currentOwnerId);
 
-          // Ambil nama asli dari tabel profiles Supabase
           const { data: profileData } = await supabase
             .from('profiles')
             .select('full_name')
@@ -88,6 +96,7 @@ export default function CashierDashboard() {
           : nameParts[0].substring(0, 2).toUpperCase();
         setInitials(calculatedInitials);
 
+        // Fetch products in the background
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
@@ -100,7 +109,7 @@ export default function CashierDashboard() {
         }
 
         if (rawProducts && rawProducts.length > 0) {
-          setProducts(rawProducts.map((item, idx) => {
+          const formattedProducts = rawProducts.map((item, idx) => {
             let rawVariants = item.varian || item.variants || item.variasi || item.options || [];
             if (typeof rawVariants === 'string') {
               try {
@@ -129,14 +138,18 @@ export default function CashierDashboard() {
               stock: Number(item.stok_manual || item.stock || item.stok || 10),
               image: item.image_url || item.foto || item.image || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=300'
             };
-          }));
+          });
+
+          // Update state dan cache
+          setProducts(formattedProducts);
+          localStorage.setItem('cashier_products', JSON.stringify(formattedProducts));
         } else {
           setProducts([]);
         }
       } catch (err) {
         console.error('Gagal memuat sesi kasir:', err.message);
       } finally {
-        setLoading(false);
+        setLoading(false); // Matikan loading state apa pun yang terjadi
       }
     };
 
@@ -240,7 +253,8 @@ export default function CashierDashboard() {
   };
 
   return (
-    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[200px] lg:pb-12 md:pr-80">
+    // PERBAIKAN 1: lg:pr-80 (bukan md:pr-80), dan pb disesuaikan agar tidak nabrak di tablet
+    <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[160px] lg:pb-0 lg:pr-80">
       
       {variantModalProduct && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -253,7 +267,7 @@ export default function CashierDashboard() {
                 <button
                   key={idx}
                   onClick={() => addToCartDirect(variantModalProduct, v.price, v.name)}
-                  className="w-full p-3 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-[#01A684] rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer active:scale-95 duration-150"
+                  className="w-full p-3 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-[#01A684] rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer active:scale-95 duration-150 border-0"
                 >
                   <span className="text-gray-800">{v.name}</span>
                   <span className="text-[#01A684]">Rp {formatRp(v.price)}</span>
@@ -341,7 +355,7 @@ export default function CashierDashboard() {
                   }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors border-0 bg-transparent cursor-pointer text-left"
                 >
-                  <Menu size={15} className="text-[#01A684]" />
+                  <Settings size={15} className="text-[#01A684]" />
                   <span>Pengaturan Akun</span>
                 </button>
               </div>
@@ -377,9 +391,12 @@ export default function CashierDashboard() {
 
       <main className="w-full max-w-md mx-auto md:max-w-full md:px-8 px-6 pt-4">
         {loading ? (
-          <p className="text-center text-xs text-gray-500 py-12">Memuat produk dari Supabase...</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+             <div className="w-8 h-8 border-4 border-emerald-200 border-t-[#01A684] rounded-full animate-spin"></div>
+             <p className="text-xs text-gray-500">Memuat produk...</p>
+          </div>
         ) : filteredProducts.length === 0 ? (
-          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang tersedia di database Supabase.</p>
+          <p className="text-center text-xs text-gray-500 py-12">Belum ada produk yang tersedia.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {filteredProducts.map((p) => {
@@ -416,7 +433,8 @@ export default function CashierDashboard() {
         )}
       </main>
 
-      <div className="lg:hidden fixed bottom-[72px] left-4 right-4 bg-[#1A1A1A] text-white rounded-2xl p-4 shadow-xl z-40">
+      {/* PERBAIKAN 2: lg:hidden (Floating Cart hanya muncul di tablet portrait & HP) */}
+      <div className="lg:hidden fixed bottom-[76px] left-4 right-4 bg-[#1A1A1A] text-white rounded-2xl p-4 shadow-xl z-40">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsDrawerOpen(!isDrawerOpen)}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-[#01A684] flex items-center justify-center">
@@ -470,7 +488,8 @@ export default function CashierDashboard() {
         )}
       </div>
 
-      <aside className="hidden md:flex fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 flex-col justify-between shadow-sm">
+      {/* PERBAIKAN 3: hidden lg:flex (Sidebar Desktop hanya muncul di ukuran Laptop / Landscape Tablet 1024px) */}
+      <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-80 bg-white border-l border-gray-200 p-6 z-40 flex-col justify-between shadow-sm">
         <div>
           <h2 className="text-base font-bold mb-4 flex items-center gap-2">
             <ShoppingBag size={18} className="text-[#01A684]" /> Pesanan Saat Ini

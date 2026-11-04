@@ -12,7 +12,7 @@ export default function OwnerPajak() {
 
   const [loading, setLoading] = useState(true);
   const [ownerId, setOwnerId] = useState('');
-  const [totalOmzetTahunan, setTotalOmzetTahunan] = useState(150000000);
+  const [totalOmzetTahunan, setTotalOmzetTahunan] = useState(0);
 
   const [tipePemilik, setTipePemilik] = useState('pribadi');
   const [sudahPunyaNpwpd, setSudahPunyaNpwpd] = useState(false);
@@ -20,35 +20,43 @@ export default function OwnerPajak() {
   const [potongPajakDiStruk, setPotongPajakDiStruk] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
 
+  const getOwnerId = () => {
+    return localStorage.getItem('owner_id') || 'toko_123';
+  };
+
   useEffect(() => {
     const fetchTaxData = async () => {
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          setOwnerId('owner-sample-id');
-          setLoading(false);
-          return;
-        }
+        let currentOwnerId = getOwnerId();
 
-        const user = session.user;
-        const currentOwnerId = user.id;
+        if (session && session.user) {
+          currentOwnerId = session.user.user_metadata?.owner_id || localStorage.getItem('owner_id') || session.user.id;
+        }
         setOwnerId(currentOwnerId);
 
+        // Ambil data transaksi dari Supabase untuk menghitung omzet tahun berjalan secara real-time
         const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
         const { data: txData, error: txError } = await supabase
           .from('transactions')
-          .select('total_amount, type')
-          .eq('owner_id', currentOwnerId)
-          .eq('type', 'Masuk')
-          .gte('created_at', startOfYear);
+          .select('total_amount, total_pay, type')
+          .eq('owner_id', currentOwnerId);
 
         if (!txError && txData && txData.length > 0) {
-          const sumOmzet = txData.reduce((acc, curr) => acc + (Number(curr.total_amount) || 0), 0);
+          const sumOmzet = txData.reduce((acc, curr) => {
+            const type = curr.type || 'Masuk';
+            if (type === 'Masuk') {
+              return acc + (Number(curr.total_pay || curr.total_amount) || 0);
+            }
+            return acc;
+          }, 0);
           setTotalOmzetTahunan(sumOmzet);
+        } else {
+          setTotalOmzetTahunan(0); // Akun baru / belum ada transaksi otomatis 0
         }
 
+        // Ambil pengaturan pajak toko dari database
         const { data: taxSettings } = await supabase
           .from('store_tax_settings')
           .select('*')
@@ -69,7 +77,7 @@ export default function OwnerPajak() {
     };
 
     fetchTaxData();
-  }, [navigate]);
+  }, []);
 
   const thresholdOmzetPajak = 360000000;
   const memenuhiSyaratPajak = totalOmzetTahunan >= thresholdOmzetPajak;
@@ -88,15 +96,11 @@ export default function OwnerPajak() {
 
   const handleSaveSettings = async () => {
     try {
-      if (ownerId === 'owner-sample-id') {
-        alert('Simulasi pengaturan pajak berhasil disimpan!');
-        return;
-      }
-
+      const currentOwnerId = ownerId || getOwnerId();
       const { error } = await supabase
         .from('store_tax_settings')
         .upsert({
-          owner_id: ownerId,
+          owner_id: currentOwnerId,
           business_type: tipePemilik,
           has_npwpd: sudahPunyaNpwpd,
           npwpd_number: nomorNpwpd,
@@ -105,7 +109,7 @@ export default function OwnerPajak() {
         }, { onConflict: 'owner_id' });
 
       if (error) throw error;
-      alert('Pengaturan pajak berhasil disimpan dan disinkronkan!');
+      alert('Pengaturan pajak berhasil disimpan dan disinkronkan ke Supabase!');
     } catch (err) {
       console.error('Gagal menyimpan pengaturan:', err.message);
       alert('Terjadi kesalahan saat menyimpan pengaturan pajak.');
@@ -133,7 +137,7 @@ export default function OwnerPajak() {
         </div>
       </header>
 
-      {/* KONTEN UTAMA RESPONSIF (UKURAN SAMA DENGAN PENGATURAN) */}
+      {/* KONTEN UTAMA RESPONSIF */}
       <main className="p-3 lg:p-8 max-w-md md:max-w-3xl lg:max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-6 items-start">
 
         {/* KOLOM KIRI (7 Kolom di Desktop) */}

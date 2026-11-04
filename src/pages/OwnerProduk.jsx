@@ -27,7 +27,6 @@ const parseRupiah = (str) => {
   return parseInt(str.toString().replace(/\./g, ''), 10) || 0;
 };
 
-// Fungsi kompresi gambar agar super ringan & tidak membebani server
 const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -58,7 +57,6 @@ const compressImage = (file, callback) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Kompres ke JPEG dengan kualitas 0.6 agar sangat ringan
       const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
       callback(dataUrl);
     };
@@ -154,12 +152,10 @@ export default function OwnerProduk() {
   const [activeProductId, setActiveProductId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State Kamera & Scanner Barcode HP
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const videoRef = useRef(null);
   const [cameraStream, setCameraStream] = useState(null);
 
-  // Form State Produk
   const [formNama, setFormNama] = useState('');
   const [formKategori, setFormKategori] = useState(daftarKategoriProduk[0] || 'Minuman');
   const [formSku, setFormSku] = useState('');
@@ -173,14 +169,74 @@ export default function OwnerProduk() {
   const [formPakaiVarian, setFormPakaiVarian] = useState(false);
   
   const [formVarianList, setFormVarianList] = useState([
-    { 
-      id: Date.now(), 
-      nama: '', 
-      hpp: '', 
-      hargaJual: '', 
-      resepVarian: [{ bahanId: '', qty: '' }] 
-    }
+    { id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }
   ]);
+
+  // ========================================================
+  // KUMPULAN FUNGSI HANDLER FORM AGAR HTML BERSIH & NO-ERROR
+  // ========================================================
+  
+  const handlePhotoUpload = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      compressImage(e.target.files[0], (compressedBase64) => {
+        setFormFoto(compressedBase64);
+      });
+    }
+  };
+
+  const handleAddResep = () => setSelectedResep([...selectedResep, { bahanId: '', qty: '' }]);
+  const handleRemoveResep = (idx) => setSelectedResep(selectedResep.filter((_, i) => i !== idx));
+  const handleResepIdChange = (idx, val) => {
+    const updated = [...selectedResep];
+    updated[idx].bahanId = val;
+    setSelectedResep(updated);
+  };
+  const handleResepQtyChange = (idx, val) => {
+    const updated = [...selectedResep];
+    updated[idx].qty = val;
+    setSelectedResep(updated);
+  };
+
+  const handleAddVarian = () => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }]);
+  const handleRemoveVarian = (vIdx) => setFormVarianList(formVarianList.filter((_, i) => i !== vIdx));
+  const handleVarianNameChange = (vIdx, val) => {
+    const updated = [...formVarianList];
+    updated[vIdx].nama = val;
+    setFormVarianList(updated);
+  };
+  const handleVarianHppChange = (vIdx, val) => {
+    const updated = [...formVarianList];
+    updated[vIdx].hpp = formatRupiah(val);
+    setFormVarianList(updated);
+  };
+  const handleVarianHargaChange = (vIdx, val) => {
+    const updated = [...formVarianList];
+    updated[vIdx].hargaJual = formatRupiah(val);
+    setFormVarianList(updated);
+  };
+
+  const handleAddBahanVarian = (vIdx) => {
+    const updated = [...formVarianList];
+    updated[vIdx].resepVarian.push({ bahanId: '', qty: '' });
+    setFormVarianList(updated);
+  };
+  const handleRemoveBahanVarian = (vIdx, rvIdx) => {
+    const updated = [...formVarianList];
+    updated[vIdx].resepVarian = updated[vIdx].resepVarian.filter((_, i) => i !== rvIdx);
+    setFormVarianList(updated);
+  };
+  const handleBahanVarianIdChange = (vIdx, rvIdx, val) => {
+    const updated = [...formVarianList];
+    updated[vIdx].resepVarian[rvIdx].bahanId = val;
+    setFormVarianList(updated);
+  };
+  const handleBahanVarianQtyChange = (vIdx, rvIdx, val) => {
+    const updated = [...formVarianList];
+    updated[vIdx].resepVarian[rvIdx].qty = val;
+    setFormVarianList(updated);
+  };
+
+  // ========================================================
 
   const startCamera = async () => {
     setIsScannerOpen(true);
@@ -211,7 +267,6 @@ export default function OwnerProduk() {
     alert(`Berhasil memindai Barcode: ${mockBarcode}`);
   };
 
-  // --- ANALITIK ---
   const sortedByTerjualDesc = [...produkList].sort((a, b) => (b.terjual || 0) - (a.terjual || 0));
   const top5Terlaris = sortedByTerjualDesc.slice(0, 5);
   const maxTerlarisQty = top5Terlaris.length > 0 ? (top5Terlaris[0].terjual || 1) : 1;
@@ -282,7 +337,6 @@ export default function OwnerProduk() {
     setIsModalOpen(true);
   };
 
-  // Optimistic UI untuk Kategori (Tanpa Buffering / Loading Lama)
   const handleAddKategori = async (e) => {
     e.preventDefault();
     if (!formKategoriBaru.trim()) return;
@@ -292,7 +346,6 @@ export default function OwnerProduk() {
       return;
     }
 
-    // Update state lokal secara instan
     setDaftarKategoriProduk([...daftarKategoriProduk, newKat]);
     setFormKategoriBaru('');
 
@@ -310,7 +363,6 @@ export default function OwnerProduk() {
       return;
     }
     if (window.confirm(`Hapus kategori "${katTarget}"?`)) {
-      // Update state lokal secara instan
       setDaftarKategoriProduk(daftarKategoriProduk.filter(k => k !== katTarget));
       if (selectedKategoriFilter === katTarget) setSelectedKategoriFilter('Semua');
       if (formKategori === katTarget) setFormKategori(daftarKategoriProduk[0]);
@@ -356,31 +408,41 @@ export default function OwnerProduk() {
         kategori: formKategori,
         sku: formSku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
         tipe_stok: formTipeStok,
-        stok_manual: formTipeStok === 'manual' ? parseFloat(formStokManual) || 0 : 0,
+        stok_manual: formTipeStok === 'manual' ? (parseFloat(formStokManual) || 0) : 0,
         stok_min: parseFloat(formStokMin) || 5,
         hpp: !formPakaiVarian ? parseRupiah(formHpp) : 0,
         harga_jual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
         pakai_varian: formPakaiVarian,
         varian: processedVarian,
-        resep: formattedResep,
-        image_url: formFoto
+        resep: formattedResep
       };
 
-      if (isEditMode) {
-        const { error } = await supabase.from('products').update(payload).eq('id', activeProductId);
-        if (error) throw error;
-        alert('Produk berhasil diperbarui!');
-      } else {
-        const { error } = await supabase.from('products').insert([payload]);
-        if (error) throw error;
-        alert('Menu produk baru berhasil ditambahkan!');
+      if (formFoto && formFoto.trim() !== '') {
+        payload.image_url = formFoto;
+        payload.foto = formFoto;
       }
 
+      let reqError;
+      if (isEditMode) {
+        const { error } = await supabase.from('products').update(payload).eq('id', activeProductId);
+        reqError = error;
+      } else {
+        const { error } = await supabase.from('products').insert(payload);
+        reqError = error;
+      }
+
+      if (reqError) throw reqError;
+      
+      alert(isEditMode ? 'Produk berhasil diperbarui!' : 'Menu produk baru berhasil ditambahkan!');
       setIsModalOpen(false);
       fetchProduk();
     } catch (err) {
-      console.error('Gagal menyimpan produk:', err.message);
-      alert('Gagal menyimpan produk ke database: ' + err.message);
+      console.error('Gagal menyimpan produk:', err);
+      if (err.message === 'Failed to fetch') {
+        alert('Gagal terhubung ke database. Harap pastikan koneksi internet Anda stabil.');
+      } else {
+        alert('Gagal menyimpan produk ke database: ' + err.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -412,7 +474,7 @@ export default function OwnerProduk() {
         <div className="h-12 lg:h-16 flex items-center justify-between relative max-w-md md:max-w-3xl lg:max-w-7xl mx-auto">
           <button 
             onClick={() => navigate(-1)} 
-            className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0"
+            className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer shrink-0 border-0 bg-transparent"
           >
             <ArrowLeft size={16} />
           </button>
@@ -511,7 +573,7 @@ export default function OwnerProduk() {
                       <span className="font-bold text-slate-800">{p.nama}</span>
                       <span className="text-[9px] text-amber-600 block">{status.penyebab} (Sisa: {p.stokManual})</span>
                     </div>
-                    <button onClick={() => handleOpenEditModal(p)} className="px-2 py-1 bg-amber-500 text-white rounded-lg font-bold text-[9px] cursor-pointer">Restock</button>
+                    <button onClick={() => handleOpenEditModal(p)} className="px-2 py-1 bg-amber-500 text-white rounded-lg font-bold text-[9px] cursor-pointer border-0">Restock</button>
                   </div>
                 );
               })}
@@ -541,7 +603,7 @@ export default function OwnerProduk() {
           </button>
         </section>
 
-        <button onClick={handleOpenAddModal} className="w-full bg-[#01a684] text-white rounded-xl py-3 flex items-center justify-center gap-1.5 font-bold text-[11px] lg:text-xs shadow-xs cursor-pointer hover:opacity-90 transition-all">
+        <button onClick={handleOpenAddModal} className="w-full bg-[#01a684] border-0 text-white rounded-xl py-3 flex items-center justify-center gap-1.5 font-bold text-[11px] lg:text-xs shadow-xs cursor-pointer hover:opacity-90 transition-all">
           <Plus size={15} /> Tambah Menu & Resep Terintegrasi
         </button>
 
@@ -584,20 +646,20 @@ export default function OwnerProduk() {
                       <div className="flex items-center gap-1 truncate">
                         <h4 className="text-[11px] font-bold text-[#181b2b] truncate">{produk.nama}</h4>
                       </div>
-                      <span className="text-[8px] text-[#86899B] bg-slate-100 px-1.5 py-0.2 rounded font-medium mt-0.5 inline-block truncate max-w-[120px]">{produk.kategori}</span>
+                      <span className="text-[8px] text-[#86899B] bg-slate-100 px-1.5 py-0.5 rounded font-medium mt-0.5 inline-block truncate max-w-[120px]">{produk.kategori}</span>
                     </div>
 
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button 
                         onClick={() => handleOpenEditModal(produk)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-[#01a684] flex items-center justify-center cursor-pointer"
+                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-[#01a684] flex items-center justify-center cursor-pointer border-0"
                         title="Edit"
                       >
                         <Settings size={13} />
                       </button>
                       <button 
                         onClick={() => handleDeleteProduk(produk.id, produk.nama)}
-                        className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center cursor-pointer"
+                        className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center cursor-pointer border-0"
                         title="Hapus"
                       >
                         <Trash2 size={13} />
@@ -636,7 +698,7 @@ export default function OwnerProduk() {
                     <span className="text-slate-500 truncate max-w-[100px]">
                       {produk.tipeStok === 'bahan' ? `Resep: ${produk.resep.length} bhn` : `Stok: ${produk.stokManual}`}
                     </span>
-                    <span className="bg-slate-100 text-slate-600 font-bold px-1.5 py-0.2 rounded">
+                    <span className="bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">
                       Terjual: {produk.terjual || 0}
                     </span>
                   </div>
@@ -662,14 +724,14 @@ export default function OwnerProduk() {
                 >
                   <Settings size={14} />
                 </button>
-                <button onClick={() => setIsFilterModalOpen(false)} className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"><X size={15} /></button>
+                <button onClick={() => setIsFilterModalOpen(false)} className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-xl transition-colors border-0 bg-transparent cursor-pointer"><X size={15} /></button>
               </div>
             </div>
-            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+            <button onClick={() => { setSelectedKategoriFilter('Semua'); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left border-0 cursor-pointer flex justify-between items-center ${selectedKategoriFilter === 'Semua' ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
               <span>Semua Kategori</span>{selectedKategoriFilter === 'Semua' && <Check size={13} />}
             </button>
             {daftarKategoriProduk.map(k => (
-              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
+              <button key={k} onClick={() => { setSelectedKategoriFilter(k); setIsFilterModalOpen(false); }} className={`py-2 px-3 rounded-xl font-bold border-0 text-left cursor-pointer flex justify-between items-center ${selectedKategoriFilter === k ? 'bg-[#01a684] text-white' : 'bg-[#F1F2F6] text-[#181b2b]'}`}>
                 <span>{k}</span>{selectedKategoriFilter === k && <Check size={13} />}
               </button>
             ))}
@@ -677,32 +739,32 @@ export default function OwnerProduk() {
         </div>
       )}
 
-      {/* MODAL KELOLA KATEGORI (INSTANT / TANPA BUFFERING) */}
+      {/* MODAL KELOLA KATEGORI */}
       {isKategoriModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl flex flex-col gap-3 text-xs border border-[#E9EBED]">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Kelola Kategori Produk</h3>
-              <button onClick={() => setIsKategoriModalOpen(false)} className="text-[#86899B]"><X size={16} /></button>
+              <button onClick={() => setIsKategoriModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={16} /></button>
             </div>
             <form onSubmit={handleAddKategori} className="flex gap-2">
-              <input type="text" value={formKategoriBaru} onChange={(e) => setFormKategoriBaru(e.target.value)} placeholder="Nama kategori baru..." className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none" />
-              <button type="submit" className="bg-[#01a684] text-white px-3.5 py-2.5 rounded-xl font-bold cursor-pointer">Tambah</button>
+              <input type="text" value={formKategoriBaru} onChange={(e) => setFormKategoriBaru(e.target.value)} placeholder="Nama kategori baru..." className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 border border-[#E9EBED] font-medium outline-none" />
+              <button type="submit" className="bg-[#01a684] border-0 text-white px-3.5 py-2.5 rounded-xl font-bold cursor-pointer">Tambah</button>
             </form>
             <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
               {daftarKategoriProduk.map((kat, idx) => (
                 <div key={idx} className="bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold text-[#181b2b] flex justify-between items-center border border-[#E9EBED]">
                   <span className="truncate">{kat}</span>
-                  <button onClick={() => handleDeleteKategori(kat)} className="text-red-400 hover:text-red-600 p-1 cursor-pointer"><Trash2 size={13} /></button>
+                  <button onClick={() => handleDeleteKategori(kat)} className="text-red-400 border-0 bg-transparent hover:text-red-600 p-1 cursor-pointer"><Trash2 size={13} /></button>
                 </div>
               ))}
             </div>
-            <button onClick={() => setIsKategoriModalOpen(false)} className="w-full py-2.5 bg-[#181b2b] text-white rounded-xl font-bold cursor-pointer">Selesai</button>
+            <button onClick={() => setIsKategoriModalOpen(false)} className="w-full py-2.5 border-0 bg-[#181b2b] text-white rounded-xl font-bold cursor-pointer">Selesai</button>
           </div>
         </div>
       )}
 
-      {/* MODAL KAMERA / SCANNER BARCODE */}
+      {/* MODAL KAMERA */}
       {isScannerOpen && (
         <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl flex flex-col gap-4 text-xs items-center text-center">
@@ -714,33 +776,30 @@ export default function OwnerProduk() {
             </div>
             <div className="flex gap-2 w-full">
               <button type="button" onClick={stopCamera} className="flex-1 py-2.5 border border-[#E9EBED] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
-              <button type="button" onClick={handleCaptureBarcode} className="flex-1 py-2.5 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer">Ambil Barcode</button>
+              <button type="button" onClick={handleCaptureBarcode} className="flex-1 py-2.5 border-0 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer">Ambil Barcode</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL TAMBAH / EDIT PRODUK DENGAN UPLOAD FOTO & LAYOUT FLEX ANTI-NABRAK */}
+      {/* MODAL TAMBAH / EDIT PRODUK */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col h-[85vh] max-h-[750px] border border-[#E9EBED] overflow-hidden">
             
-            {/* Header Modal */}
             <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
               <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">
                 {isEditMode ? 'Edit Pengaturan Menu Produk' : 'Tambah Menu & Resep Baru'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] cursor-pointer"><X size={18} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={18} /></button>
             </div>
 
-            {/* Form Body (Scrollable) */}
             <form onSubmit={handleSaveProduk} className="flex flex-col flex-1 overflow-y-auto p-4 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#181b2b]">Nama Menu Produk</label>
-                <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" required />
+                <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl border border-[#E9EBED] p-3 font-bold outline-none focus:ring-2 focus:ring-[#01a684]" required />
               </div>
               
-              {/* Upload Foto Produk (Kamera & Galeri, Kompresi Otomatis Ringan) */}
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#181b2b]">Foto Produk (Tampilan POS Kasir)</label>
                 <div className="flex items-center gap-3 bg-[#F1F2F6] p-2.5 rounded-xl border border-[#E9EBED]">
@@ -756,13 +815,7 @@ export default function OwnerProduk() {
                       type="file" 
                       accept="image/*" 
                       capture="environment"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          compressImage(e.target.files[0], (compressedBase64) => {
-                            setFormFoto(compressedBase64);
-                          });
-                        }
-                      }}
+                      onChange={handlePhotoUpload}
                       className="text-[10px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#01a684] file:text-white file:cursor-pointer"
                     />
                     <span className="text-[9px] text-slate-400">Otomatis dikompres sangat ringan & ramah server.</span>
@@ -773,7 +826,7 @@ export default function OwnerProduk() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">Kategori</label>
-                  <select value={formKategori} onChange={(e) => setFormKategori(e.target.value)} className="bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none">
+                  <select value={formKategori} onChange={(e) => setFormKategori(e.target.value)} className="bg-[#F1F2F6] rounded-xl p-2.5 border border-[#E9EBED] font-medium outline-none">
                     {daftarKategoriProduk.map(kat => (<option key={kat} value={kat}>{kat}</option>))}
                   </select>
                 </div>
@@ -781,11 +834,11 @@ export default function OwnerProduk() {
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#181b2b]">SKU / Barcode</label>
                   <div className="flex gap-1">
-                    <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="flex-1 bg-[#F1F2F6] rounded-xl p-2.5 font-mono outline-none text-[11px]" />
+                    <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="flex-1 bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-2.5 font-mono outline-none text-[11px]" />
                     <button 
                       type="button" 
                       onClick={startCamera}
-                      className="bg-[#01a684] text-white px-2.5 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-90"
+                      className="bg-[#01a684] text-white px-2.5 border-0 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-90"
                       title="Scan Barcode via Kamera HP"
                     >
                       <Camera size={15} />
@@ -806,7 +859,7 @@ export default function OwnerProduk() {
                 <div className="flex flex-col gap-2 bg-[#F1F2F6] p-3 rounded-2xl border border-[#E9EBED]">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-[#181b2b]">Pilih Bahan dari Gudang</span>
-                    <button type="button" onClick={() => setSelectedResep([...selectedResep, { bahanId: '', qty: '' }])} className="text-[#01a684] font-bold cursor-pointer">+ Bahan</button>
+                    <button type="button" onClick={handleAddResep} className="text-[#01a684] border-0 bg-transparent font-bold cursor-pointer">+ Bahan</button>
                   </div>
                   {selectedResep.map((item, idx) => {
                     const selectedBahan = masterBahan.find(mb => mb.id === item.bahanId);
@@ -814,23 +867,15 @@ export default function OwnerProduk() {
 
                     return (
                       <div key={idx} className="flex gap-2 items-center">
-                        <select value={item.bahanId} onChange={(e) => {
-                          const updated = [...selectedResep];
-                          updated[idx].bahanId = e.target.value;
-                          setSelectedResep(updated);
-                        }} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
+                        <select value={item.bahanId} onChange={(e) => handleResepIdChange(idx, e.target.value)} className="flex-1 bg-white rounded-xl p-2 text-[11px] border border-[#E9EBED] outline-none" required>
                           <option value="">Pilih Bahan...</option>
                           {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
                         </select>
                         <div className="flex items-center bg-white rounded-xl border border-[#E9EBED] px-2 py-1 w-28">
-                          <input type="number" step="any" value={item.qty} onChange={(e) => {
-                            const updated = [...selectedResep];
-                            updated[idx].qty = e.target.value;
-                            setSelectedResep(updated);
-                          }} placeholder="0" className="w-14 text-[11px] font-bold outline-none bg-transparent text-center" required />
+                          <input type="number" step="any" value={item.qty} onChange={(e) => handleResepQtyChange(idx, e.target.value)} placeholder="0" className="w-14 text-[11px] font-bold border-0 outline-none bg-transparent text-center" required />
                           <span className="text-[10px] text-slate-400 uppercase font-bold shrink-0">{satuanBahan}</span>
                         </div>
-                        {selectedResep.length > 1 && (<button type="button" onClick={() => setSelectedResep(selectedResep.filter((_, i) => i !== idx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                        {selectedResep.length > 1 && (<button type="button" onClick={() => handleRemoveResep(idx)} className="text-red-400 p-1 border-0 bg-transparent cursor-pointer"><Trash2 size={14} /></button>)}
                       </div>
                     );
                   })}
@@ -841,11 +886,11 @@ export default function OwnerProduk() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
                     <label className="font-bold text-[#181b2b]">Stok Awal</label>
-                    <input type="number" value={formStokManual} onChange={(e) => setFormStokManual(e.target.value)} placeholder="50" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none" />
+                    <input type="number" value={formStokManual} onChange={(e) => setFormStokManual(e.target.value)} placeholder="50" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-2.5 font-bold outline-none" />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="font-bold text-[#181b2b]">Alert Minimum</label>
-                    <input type="number" value={formStokMin} onChange={(e) => setFormStokMin(e.target.value)} placeholder="5" className="bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none" />
+                    <input type="number" value={formStokMin} onChange={(e) => setFormStokMin(e.target.value)} placeholder="5" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-2.5 font-bold outline-none" />
                   </div>
                 </div>
               )}
@@ -877,42 +922,27 @@ export default function OwnerProduk() {
                 <div className="bg-slate-50 p-3 rounded-2xl border border-[#E9EBED] flex flex-col gap-3">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-[#01a684] uppercase text-[10px]">Daftar Varian & Resep Spesifik:</span>
-                    <button type="button" onClick={() => setFormVarianList([...formVarianList, { id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }])} className="text-[#01a684] font-bold cursor-pointer text-[11px]">+ Varian</button>
+                    <button type="button" onClick={handleAddVarian} className="text-[#01a684] font-bold border-0 bg-transparent cursor-pointer text-[11px]">+ Varian</button>
                   </div>
 
                   <div className="flex flex-col gap-2.5">
                     {formVarianList.map((v, vIdx) => (
                       <div key={v.id || vIdx} className="bg-white border border-[#E9EBED] p-3 rounded-2xl flex flex-col gap-2.5 shadow-xs">
+                        
                         <div className="flex gap-2 items-center">
-                          <input type="text" value={v.nama} onChange={(e) => {
-                            const updated = [...formVarianList];
-                            updated[vIdx].nama = e.target.value;
-                            setFormVarianList(updated);
-                          }} placeholder="Nama Varian (Cth: Large / Dingin)" className="flex-1 bg-[#F1F2F6] rounded-xl px-3 py-2 text-xs font-bold outline-none" required />
-                          {formVarianList.length > 1 && (<button type="button" onClick={() => setFormVarianList(formVarianList.filter((_, i) => i !== vIdx))} className="text-red-400 p-1"><Trash2 size={14} /></button>)}
+                          <input type="text" value={v.nama} onChange={(e) => handleVarianNameChange(vIdx, e.target.value)} placeholder="Nama Varian (Cth: Large / Dingin)" className="flex-1 bg-[#F1F2F6] border border-[#E9EBED] rounded-xl px-3 py-2 text-xs font-bold outline-none" required />
+                          {formVarianList.length > 1 && (<button type="button" onClick={() => handleRemoveVarian(vIdx)} className="text-red-400 p-1 border-0 bg-transparent cursor-pointer"><Trash2 size={14} /></button>)}
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <input type="text" value={v.hpp} onChange={(e) => {
-                            const updated = [...formVarianList];
-                            updated[vIdx].hpp = formatRupiah(e.target.value);
-                            setFormVarianList(updated);
-                          }} placeholder="HPP (Modal)" className="bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-medium outline-none" />
-                          <input type="text" value={v.hargaJual} onChange={(e) => {
-                            const updated = [...formVarianList];
-                            updated[vIdx].hargaJual = formatRupiah(e.target.value);
-                            setFormVarianList(updated);
-                          }} placeholder="Harga Jual" className="bg-[#F1F2F6] rounded-xl px-2.5 py-2 text-xs font-bold text-[#01a684] outline-none" required />
+                          <input type="text" value={v.hpp} onChange={(e) => handleVarianHppChange(vIdx, e.target.value)} placeholder="HPP (Modal)" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl px-2.5 py-2 text-xs font-medium outline-none" />
+                          <input type="text" value={v.hargaJual} onChange={(e) => handleVarianHargaChange(vIdx, e.target.value)} placeholder="Harga Jual" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl px-2.5 py-2 text-xs font-bold text-[#01a684] outline-none" required />
                         </div>
 
                         <div className="bg-[#F1F2F6]/60 p-2.5 rounded-xl border border-slate-200 flex flex-col gap-2">
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="font-bold text-slate-700">Komposisi Bahan Varian Ini:</span>
-                            <button type="button" onClick={() => {
-                              const updated = [...formVarianList];
-                              updated[vIdx].resepVarian.push({ bahanId: '', qty: '' });
-                              setFormVarianList(updated);
-                            }} className="text-[#01a684] font-bold">+ Bahan</button>
+                            <button type="button" onClick={() => handleAddBahanVarian(vIdx)} className="text-[#01a684] font-bold border-0 bg-transparent cursor-pointer">+ Bahan</button>
                           </div>
 
                           {(v.resepVarian || []).map((rv, rvIdx) => {
@@ -921,27 +951,15 @@ export default function OwnerProduk() {
 
                             return (
                               <div key={rvIdx} className="flex gap-2 items-center">
-                                <select value={rv.bahanId} onChange={(e) => {
-                                  const updated = [...formVarianList];
-                                  updated[vIdx].resepVarian[rvIdx].bahanId = e.target.value;
-                                  setFormVarianList(updated);
-                                }} className="flex-1 bg-white rounded-xl p-1.5 text-[10px] border border-[#E9EBED] outline-none" required>
+                                <select value={rv.bahanId} onChange={(e) => handleBahanVarianIdChange(vIdx, rvIdx, e.target.value)} className="flex-1 bg-white rounded-xl p-1.5 text-[10px] border border-[#E9EBED] outline-none" required>
                                   <option value="">Pilih Bahan...</option>
                                   {masterBahan.map(mb => (<option key={mb.id} value={mb.id}>{mb.nama} (Sisa: {mb.stok} {mb.satuan})</option>))}
                                 </select>
                                 <div className="flex items-center bg-white rounded-xl border border-[#E9EBED] px-2 py-0.5 w-24">
-                                  <input type="number" step="any" value={rv.qty} onChange={(e) => {
-                                    const updated = [...formVarianList];
-                                    updated[vIdx].resepVarian[rvIdx].qty = e.target.value;
-                                    setFormVarianList(updated);
-                                  }} placeholder="0" className="w-12 text-[10px] font-bold outline-none bg-transparent text-center" required />
+                                  <input type="number" step="any" value={rv.qty} onChange={(e) => handleBahanVarianQtyChange(vIdx, rvIdx, e.target.value)} placeholder="0" className="w-12 text-[10px] font-bold border-0 outline-none bg-transparent text-center" required />
                                   <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">{satuanBahanV}</span>
                                 </div>
-                                {v.resepVarian.length > 1 && (<button type="button" onClick={() => {
-                                  const updated = [...formVarianList];
-                                  updated[vIdx].resepVarian = updated[vIdx].resepVarian.filter((_, i) => i !== rvIdx);
-                                  setFormVarianList(updated);
-                                }} className="text-red-400 p-0.5"><Trash2 size={12} /></button>)}
+                                {v.resepVarian.length > 1 && (<button type="button" onClick={() => handleRemoveBahanVarian(vIdx, rvIdx)} className="text-red-400 p-0.5 border-0 bg-transparent cursor-pointer"><Trash2 size={12} /></button>)}
                               </div>
                             );
                           })}
@@ -955,10 +973,9 @@ export default function OwnerProduk() {
 
               <div className="h-4 shrink-0" />
 
-              {/* Footer Tombol Aksi (Sticky di bawah form body) */}
               <div className="flex gap-2 pt-3 border-t border-[#E9EBED] bg-white shrink-0 mt-auto">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white">Batal</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0">{isSubmitting ? 'Menyimpan...' : 'Simpan Menu'}</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-[#01a684] border-0 text-white rounded-xl font-bold cursor-pointer shadow-sm">{isSubmitting ? 'Menyimpan...' : 'Simpan Menu'}</button>
               </div>
             </form>
 

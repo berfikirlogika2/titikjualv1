@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Calendar, Wallet, Building2, CreditCard, ChevronRight, 
   ShoppingBag, X, Download, FileText, FileSpreadsheet, RotateCw, TrendingUp,
-  UserCheck
+  UserCheck, Database, Boxes, Activity, Package 
 } from 'lucide-react';
 import OwnerBottomNav from './OwnerBottomNav';
 import { supabase } from '../supabaseClient';
@@ -20,11 +20,14 @@ export default function OwnerLaporan() {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState({
     omzet: '0',
-    pemasukan: '0',
-    pengeluaran: '0',
+    hpp: '0',
     labaBersih: '0',
+    marginPct: 0,
     bank: '0',
     cash: '0',
+    asetProduk: '0',
+    asetBahan: '0',
+    totalAset: '0',
     ownerTx: [],
     staffTx: [],
   });
@@ -37,43 +40,80 @@ export default function OwnerLaporan() {
   };
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchReportsAndAssets = async () => {
       setLoading(true);
       try {
         const currentOwnerId = getOwnerId();
-
-        let query = supabase
-          .from('transactions')
-          .select('*, transaction_items(*)')
-          .eq('owner_id', currentOwnerId)
-          .order('created_at', { ascending: false });
-
         const now = new Date();
-        if (activeFilter === 'Hari Ini') {
-          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-          query = query.gte('created_at', startOfDay);
-        } else if (activeFilter === 'Bulan Ini') {
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-          query = query.gte('created_at', startOfMonth);
-        } else if (activeFilter === 'Tahun Ini') {
-          const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
-          query = query.gte('created_at', startOfYear);
-        } else if (activeFilter === 'Kustom' && startDate && endDate) {
-          query = query.gte('created_at', `${startDate}T00:00:00`).lte('created_at', `${endDate}T23:59:59`);
+        
+        let txData = [];
+
+        // 1. QUERY TRANSAKSI & DETAIL ITEM (Anti-Crash Fallback)
+        try {
+          let query = supabase
+            .from('transactions')
+            .select('*, transaction_items(*)')
+            .eq('owner_id', currentOwnerId)
+            .order('created_at', { ascending: false });
+
+          if (activeFilter === 'Hari Ini') {
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+            query = query.gte('created_at', startOfDay);
+          } else if (activeFilter === 'Bulan Ini') {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            query = query.gte('created_at', startOfMonth);
+          } else if (activeFilter === 'Tahun Ini') {
+            const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
+            query = query.gte('created_at', startOfYear);
+          } else if (activeFilter === 'Kustom' && startDate && endDate) {
+            query = query.gte('created_at', `${startDate}T00:00:00`).lte('created_at', `${endDate}T23:59:59`);
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (data) txData = data;
+
+        } catch (err) {
+          console.warn('Fallback kueri transaksi sederhana berjalan...', err.message);
+          // Jika relasi transaction_items belum ada, pakai kueri biasa agar tidak blank putih
+          let fallbackQuery = supabase
+            .from('transactions')
+            .select('*')
+            .eq('owner_id', currentOwnerId)
+            .order('created_at', { ascending: false });
+
+          if (activeFilter === 'Hari Ini') fallbackQuery = fallbackQuery.gte('created_at', new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString());
+          else if (activeFilter === 'Bulan Ini') fallbackQuery = fallbackQuery.gte('created_at', new Date(now.getFullYear(), now.getMonth(), 1).toISOString());
+          else if (activeFilter === 'Tahun Ini') fallbackQuery = fallbackQuery.gte('created_at', new Date(now.getFullYear(), 0, 1).toISOString());
+          else if (activeFilter === 'Kustom' && startDate && endDate) fallbackQuery = fallbackQuery.gte('created_at', `${startDate}T00:00:00`).lte('created_at', `${endDate}T23:59:59`);
+
+          const { data } = await fallbackQuery;
+          if (data) txData = data;
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-
+        // Kalkulasi Transaksi
         let totalOmzet = 0;
+        let totalHpp = 0;
         let totalBank = 0;
         let totalCash = 0;
         const staffTransactions = [];
 
-        if (data && data.length > 0) {
-          data.forEach((tx) => {
-            const amount = Number(tx.total_amount) || 0;
+        txData.forEach((tx) => {
+          const amount = Number(tx.total_pay || tx.total_amount) || 0;
+          const type = tx.type || 'Masuk';
+          
+          if (type === 'Masuk') {
             totalOmzet += amount;
+
+            // Hitung HPP aktual berdasarkan item (jika relasinya ada)
+            if (tx.transaction_items && Array.isArray(tx.transaction_items) && tx.transaction_items.length > 0) {
+              tx.transaction_items.forEach(item => {
+                totalHpp += (Number(item.hpp || 0) * Number(item.quantity || 1));
+              });
+            } else {
+              // Estimasi HPP jika belum ada detail (35%)
+              totalHpp += (amount * 0.35);
+            }
 
             const method = (tx.payment_method || '').toLowerCase();
             if (method.includes('cash') || method.includes('tunai')) {
@@ -83,39 +123,77 @@ export default function OwnerLaporan() {
             }
 
             staffTransactions.push({
-              title: `Penjualan POS (${tx.cashier_name || 'Kasir'})`,
+              title: `Penjualan (${tx.cashier_name || 'Kasir'})`,
               desc: `Metode: ${(tx.payment_method || 'Tunai').toUpperCase()}`,
               amount: `+ Rp ${amount.toLocaleString('id-ID')}`,
+              isLoss: false
             });
-          });
-        }
+          } else if (type === 'Keluar') {
+            staffTransactions.push({
+              title: `Pengeluaran Kasir`,
+              desc: tx.notes || 'Pengeluaran Operasional',
+              amount: `- Rp ${amount.toLocaleString('id-ID')}`,
+              isLoss: true
+            });
+          }
+        });
 
-        const totalPengeluaran = totalOmzet * 0.35; 
-        const labaBersih = totalOmzet - totalPengeluaran;
+        const labaBersih = totalOmzet - totalHpp;
+        const marginPct = totalOmzet > 0 ? Math.round((labaBersih / totalOmzet) * 100) : 0;
+
+        // 2. QUERY ASET PRODUK JADI (Aman tanpa Crash)
+        let asetProduk = 0;
+        try {
+          const { data: prodData } = await supabase.from('products').select('*').eq('owner_id', currentOwnerId);
+          if (prodData) {
+            prodData.forEach(p => {
+              if (p.tipe_stok === 'manual') {
+                asetProduk += (Number(p.stok_manual || 0) * Number(p.hpp || 0));
+              }
+            });
+          }
+        } catch (e) { console.warn('Abaikan: Tabel produk belum optimal'); }
+
+        // 3. QUERY ASET BAHAN BAKU (Aman tanpa Crash)
+        let asetBahan = 0;
+        try {
+          const { data: bahanData } = await supabase.from('ingredients').select('*').eq('owner_id', currentOwnerId);
+          if (bahanData) {
+            bahanData.forEach(b => {
+              const hargaSatuan = Number(b.harga_satuan || b.harga_beli || b.hpp || 0);
+              asetBahan += (Number(b.stok || 0) * hargaSatuan);
+            });
+          }
+        } catch (e) { console.warn('Abaikan: Tabel bahan belum optimal'); }
+
+        const totalAset = asetProduk + asetBahan;
 
         setReportData({
           omzet: totalOmzet.toLocaleString('id-ID'),
-          pemasukan: totalOmzet.toLocaleString('id-ID'),
-          pengeluaran: totalPengeluaran.toLocaleString('id-ID'),
+          hpp: totalHpp.toLocaleString('id-ID'),
           labaBersih: labaBersih.toLocaleString('id-ID'),
+          marginPct: marginPct,
           bank: totalBank.toLocaleString('id-ID'),
           cash: totalCash.toLocaleString('id-ID'),
+          asetProduk: asetProduk.toLocaleString('id-ID'),
+          asetBahan: asetBahan.toLocaleString('id-ID'),
+          totalAset: totalAset.toLocaleString('id-ID'),
           ownerTx: [
-            { title: 'Injeksi Modal Usaha', desc: 'Transfer Bank Utama', amount: '+ Rp 10.000.000' },
-            { title: 'Operasional Bulanan', desc: 'Pengeluaran Toko', amount: `- Rp ${totalPengeluaran.toLocaleString('id-ID')}`, isLoss: true },
+            { title: 'Laba Ditahan', desc: 'Sisa Untung Bersih Terkini', amount: `+ Rp ${labaBersih.toLocaleString('id-ID')}` },
+            { title: 'Total Modal Tertahan', desc: 'Modal Produk Terjual (HPP)', amount: `- Rp ${totalHpp.toLocaleString('id-ID')}`, isLoss: true },
           ],
           staffTx: staffTransactions.length > 0 ? staffTransactions : [
-            { title: 'Belum ada transaksi kasir', desc: 'Sistem POS siap mencatat', amount: 'Rp 0' }
+            { title: 'Belum ada transaksi', desc: 'Sistem POS siap mencatat', amount: 'Rp 0' }
           ],
         });
       } catch (err) {
-        console.error('Gagal mengambil data laporan:', err.message);
+        console.error('Gagal memproses data dashboard:', err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTransactions();
+    fetchReportsAndAssets();
   }, [activeFilter, startDate, endDate]);
 
   const handleDownloadConfirm = () => {
@@ -123,7 +201,7 @@ export default function OwnerLaporan() {
     setIsDownloading(true);
     setTimeout(() => {
       setIsDownloading(false);
-      alert(`Laporan berhasil diunduh dalam format ${downloadFormat.toUpperCase()}!`);
+      alert(`Laporan detail (Omzet, HPP, Margin, Aset) berhasil diunduh dalam format ${downloadFormat.toUpperCase()}!`);
     }, 1500);
   };
 
@@ -154,16 +232,17 @@ export default function OwnerLaporan() {
           <button 
             onClick={() => setIsDownloadOpen(true)}
             className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-[#01a684] hover:bg-emerald-50 rounded-full transition-colors cursor-pointer shrink-0 border-0 bg-transparent"
+            title="Unduh Laporan Analitik"
           >
             <Download size={16} />
           </button>
         </div>
       </header>
 
-      {/* CONTENT BODY RESPONSIF (LAYOUT 12-KOLOM SEPERTI PENGATURAN) */}
+      {/* CONTENT BODY RESPONSIF */}
       <main className="p-3 lg:p-8 max-w-md md:max-w-3xl lg:max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-6 items-start">
         
-        {/* KOLOM KIRI (7 Kolom di Desktop): FILTER, HERO OMZET, PEMASUKAN/PENGELUARAN, LABA BERSIH, BANK/CASH */}
+        {/* KOLOM KIRI (7 Kolom di Desktop) */}
         <div className="lg:col-span-7 flex flex-col gap-3 lg:gap-5 w-full">
 
           {/* PILLS CONTROL FILTER PERIODE */}
@@ -193,58 +272,79 @@ export default function OwnerLaporan() {
             </button>
           </div>
 
-          {/* HERO CARD: TOTAL OMZET */}
-          <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-md relative overflow-hidden flex items-center">
-            <div className="relative z-10 w-full">
-              <span className="text-[9px] lg:text-[10px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                <Wallet size={12} className="text-[#01a684]" /> TOTAL OMZET • {activeFilter.toUpperCase()}
-              </span>
-              <div className="flex items-baseline gap-2 mt-1.5">
-                <h2 className="text-xl lg:text-2xl font-black tabular-nums tracking-tight">
-                  {loading ? 'Memuat...' : `Rp ${reportData.omzet}`}
-                </h2>
-                <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
-                  Supabase Real-time
+          {/* HERO CARD: TOTAL OMZET & LABA BERSIH */}
+          <div className="bg-gradient-to-br from-[#181b2b] via-[#23273a] to-[#01a684]/80 text-white rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-md relative overflow-hidden flex flex-col gap-4">
+            <div className="relative z-10 w-full flex justify-between items-start">
+              <div>
+                <span className="text-[9px] lg:text-[10px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                  <Wallet size={12} className="text-[#01a684]" /> OMZET KOTOR • {activeFilter.toUpperCase()}
+                </span>
+                <div className="flex items-baseline gap-2 mt-1.5">
+                  <h2 className="text-2xl lg:text-3xl font-black tabular-nums tracking-tight">
+                    {loading ? 'Memuat...' : `Rp ${reportData.omzet}`}
+                  </h2>
+                </div>
+              </div>
+              <div className="bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-400/30 flex flex-col items-end">
+                <span className="text-[9px] text-emerald-100 font-bold uppercase">Margin Profit</span>
+                <span className="text-sm font-black text-emerald-400">{reportData.marginPct}%</span>
+              </div>
+            </div>
+
+            {/* BARIS KEDUA: HPP & LABA */}
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10 relative z-10">
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block mb-0.5">Total Modal (HPP)</span>
+                <span className="text-sm font-bold text-rose-300">- Rp {reportData.hpp}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block mb-0.5">Laba / Untung Bersih</span>
+                <span className="text-sm font-bold text-emerald-300">+ Rp {reportData.labaBersih}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BENTO GRID: ASET GUDANG */}
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/90 p-4 lg:p-5 shadow-xs flex flex-col gap-4">
+            <div className="flex items-center gap-2 border-b border-[#E9EBED] pb-3">
+              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                <Database size={14} />
+              </div>
+              <div>
+                <h3 className="text-[11px] lg:text-xs font-bold uppercase tracking-wider text-[#181b2b]">Total Nilai Aset Saat Ini</h3>
+                <p className="text-[9px] text-[#86899B]">Valuasi modal tertahan di produk & gudang bahan</p>
+              </div>
+            </div>
+            
+            <div className="flex items-end justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-black text-[#181b2b] tabular-nums">Rp {reportData.totalAset}</span>
+                <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1 mt-0.5">
+                  <Activity size={10} /> Akumulasi HPP & Harga Beli
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* BENTO GRID: PEMASUKAN VS PENGELUARAN */}
-          <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/90 p-3.5 shadow-2xs flex flex-col justify-between">
-              <span className="text-[9px] lg:text-[10px] font-extrabold text-[#86899B] uppercase tracking-wider">PEMASUKAN</span>
-              <div className="text-base lg:text-xl font-black text-[#181b2b] tabular-nums mt-1.5">
-                {loading ? '...' : `Rp ${reportData.pemasukan}`}
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="bg-[#F1F2F6] p-2.5 rounded-xl border border-[#E9EBED]">
+                <span className="text-[9px] font-bold text-[#86899B] block mb-0.5 flex items-center gap-1">
+                  <Package size={10} /> Aset Produk Jadi
+                </span>
+                <span className="text-xs font-bold text-[#181b2b]">Rp {reportData.asetProduk}</span>
               </div>
-              <div className="w-full h-1 bg-slate-200/80 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-[#01a684] rounded-full w-[80%]" />
-              </div>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/90 p-3.5 shadow-2xs flex flex-col justify-between">
-              <span className="text-[9px] lg:text-[10px] font-extrabold text-[#86899B] uppercase tracking-wider">PENGELUARAN</span>
-              <div className="text-base lg:text-xl font-black text-[#181b2b] tabular-nums mt-1.5">
-                {loading ? '...' : `Rp ${reportData.pengeluaran}`}
-              </div>
-              <div className="w-full h-1 bg-slate-200/80 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full w-[55%]" />
+              <div className="bg-[#F1F2F6] p-2.5 rounded-xl border border-[#E9EBED]">
+                <span className="text-[9px] font-bold text-[#86899B] block mb-0.5 flex items-center gap-1">
+                  <Boxes size={10} /> Aset Bahan Baku
+                </span>
+                <span className="text-xs font-bold text-[#181b2b]">Rp {reportData.asetBahan}</span>
               </div>
             </div>
           </div>
 
-          {/* LABA BERSIH CARD */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl lg:rounded-3xl p-4 lg:p-5 border border-white/90 shadow-xs flex justify-between items-center">
-            <div>
-              <span className="text-[9px] lg:text-[10px] font-bold text-[#86899B] uppercase tracking-wider block">Selisih (Laba Bersih)</span>
-              <span className="text-base lg:text-xl font-black text-[#01a684] tabular-nums mt-0.5 block">
-                {loading ? '...' : `+ Rp ${reportData.labaBersih}`}
-              </span>
-            </div>
-            <div className="bg-emerald-50 text-[#01a684] p-2.5 rounded-2xl border border-emerald-200">
-              <TrendingUp size={18} />
-            </div>
-          </div>
+        </div>
+
+        {/* KOLOM KANAN (5 Kolom di Desktop) */}
+        <div className="lg:col-span-5 flex flex-col gap-3 lg:gap-5 w-full">
 
           {/* BANK & CASH BENTO CARDS */}
           <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
@@ -269,28 +369,17 @@ export default function OwnerLaporan() {
             </div>
           </div>
 
-        </div>
-
-        {/* KOLOM KANAN (5 Kolom di Desktop): AKTIVITAS TRANSAKSI OWNER & KASIR */}
-        <div className="lg:col-span-5 flex flex-col gap-3 lg:gap-5 w-full">
-
           {/* RINGKASAN TRANSAKSI OWNER */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl lg:rounded-3xl p-4 lg:p-5 border border-white/90 shadow-xs">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[11px] lg:text-xs font-bold uppercase tracking-wider text-[#181b2b]">Aktivitas Transaksi Owner</h2>
-              <button 
-                onClick={() => navigate('/owner/transaksi')}
-                className="flex items-center gap-0.5 text-[#01a684] text-[11px] font-bold hover:underline cursor-pointer border-0 bg-transparent"
-              >
-                Detail <ChevronRight size={13} />
-              </button>
+              <h2 className="text-[11px] lg:text-xs font-bold uppercase tracking-wider text-[#181b2b]">Arus Kas Bersih (Periode Ini)</h2>
             </div>
             <div className="flex flex-col gap-2.5">
               {reportData.ownerTx.map((tx, idx) => (
                 <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F1F2F6]/60 border border-[#E9EBED]/50 text-xs">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-7 h-7 rounded-xl bg-white flex items-center justify-center text-[#01a684] shadow-2xs shrink-0">
-                      <UserCheck size={14} />
+                      <TrendingUp size={14} className={tx.isLoss ? 'text-rose-500' : 'text-[#01a684]'} />
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-[#181b2b] truncate">{tx.title}</p>
@@ -316,7 +405,7 @@ export default function OwnerLaporan() {
                 Detail <ChevronRight size={13} />
               </button>
             </div>
-            <div className="flex flex-col gap-2.5 max-h-64 overflow-y-auto">
+            <div className="flex flex-col gap-2.5 max-h-64 overflow-y-auto pr-1">
               {reportData.staffTx.map((tx, idx) => (
                 <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F1F2F6]/60 border border-[#E9EBED]/50 text-xs">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -328,7 +417,7 @@ export default function OwnerLaporan() {
                       <p className="text-[9px] text-[#86899B] truncate">{tx.desc}</p>
                     </div>
                   </div>
-                  <p className="font-black tabular-nums text-[#01a684] shrink-0 ml-2">
+                  <p className={`font-black tabular-nums shrink-0 ml-2 ${tx.isLoss ? 'text-red-600' : 'text-[#01a684]'}`}>
                     {tx.amount}
                   </p>
                 </div>
@@ -434,7 +523,7 @@ export default function OwnerLaporan() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-[240px] w-full shadow-2xl flex flex-col items-center text-center gap-3 border border-[#E9EBED]">
             <RotateCw size={32} className="text-[#01a684] animate-spin" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#181b2b]">Unduh Laporan</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#181b2b]">Menyiapkan File</h3>
             <p className="text-[11px] text-[#86899B]">Mohon tunggu sebentar...</p>
           </div>
         </div>

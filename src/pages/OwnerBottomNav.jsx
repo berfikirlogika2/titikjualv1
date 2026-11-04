@@ -139,15 +139,8 @@ export default function OwnerBottomNav() {
           })}
         </div>
 
-        {/* Footer Sidebar: Akses Cepat ke Layar Kasir / Keluar */}
+        {/* Footer Sidebar: Akses Cepat Keluar */}
         <div className="p-3.5 border-t border-white/10 bg-black/20 shrink-0 flex flex-col gap-1.5">
-          <button
-            onClick={() => navigate('/cashier-dashboard')}
-            className="w-full flex items-center justify-center gap-2 bg-[#01A684]/20 hover:bg-[#01A684] text-emerald-300 hover:text-white border border-[#01A684]/40 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer"
-          >
-            <Store size={14} />
-            <span>Ke Layar Kasir</span>
-          </button>
           <button
             onClick={() => navigate('/login')}
             className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 py-2 px-3 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
