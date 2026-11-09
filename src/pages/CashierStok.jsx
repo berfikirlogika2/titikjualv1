@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, PlusCircle, X, Camera, Trash2, Settings, Layers, Search, SlidersHorizontal, Check } from 'lucide-react';
+import { ArrowLeft, Plus, PlusCircle, X, Edit3, Check, Search, SlidersHorizontal, Trash2, Camera, Layers, Coffee } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import CashierBottomNav from './CashierBottomNav';
 
@@ -68,42 +68,32 @@ export default function CashierStok() {
   const [stats, setStats] = useState({ totalProduk: 0, stokMenipis: 0, totalBahan: 0 });
 
   const [ownerId, setOwnerId] = useState('toko_123');
-  const [masterBahan, setMasterBahan] = useState([]);
   const [daftarKategoriProduk, setDaftarKategoriProduk] = useState(['Minuman', 'Makanan', 'Snack & Dessert', 'Barang Retail']);
 
-  // State Modal Tambah Produk Baru (Persis seperti Owner Produk)
+  // State Modal Tambah Produk Satuan (Khusus Kasir - Tanpa Resep Rumit)
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [formNama, setFormNama] = useState('');
   const [formKategori, setFormKategori] = useState('Minuman');
   const [formSku, setFormSku] = useState('');
-  const [formTipeStok, setFormTipeStok] = useState('manual');
   const [formStokManual, setFormStokManual] = useState('');
-  const [formStokMin, setFormStokMin] = useState('5');
-  const [selectedResep, setSelectedResep] = useState([{ bahanId: '', qty: '' }]);
-  const [formHpp, setFormHpp] = useState('');
   const [formHargaJual, setFormHargaJual] = useState('');
   const [formFoto, setFormFoto] = useState('');
-  const [formPakaiVarian, setFormPakaiVarian] = useState(false);
-  const [formVarianList, setFormVarianList] = useState([
-    { id: Date.now(), nama: '', hpp: '', hargaJual: '', resepVarian: [{ bahanId: '', qty: '' }] }
-  ]);
   const [submittingProd, setSubmittingProd] = useState(false);
 
-  // State Modal Tambah Bahan Baku Baru (Persis seperti Owner Bahan)
+  // State Modal Tambah Bahan Baku Baru
   const [isAddIngredientModalOpen, setIsAddIngredientModalOpen] = useState(false);
   const [formBahanNama, setFormBahanNama] = useState('');
   const [formBahanKategori, setFormBahanKategori] = useState('Bahan Utama');
   const [formBahanStok, setFormBahanStok] = useState('');
   const [formBahanSatuan, setFormBahanSatuan] = useState('kg');
   const [formBahanHargaBeli, setFormBahanHargaBeli] = useState('');
-  const [formBahanLimitMin, setFormBahanLimitMin] = useState('5');
   const [submittingIng, setSubmittingIng] = useState(false);
 
   const getOwnerId = () => {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Selalu me-refresh data saat halaman dibuka / tab aktif
+  // Selalu me-refresh data secara otomatis (Real-time sync)
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -167,7 +157,6 @@ export default function CashierStok() {
           };
         });
         setIngredients(formattedIngredients);
-        setMasterBahan(ingData.map(item => ({ id: item.id, nama: item.nama || item.name, stok: Number(item.stok || item.stock), satuan: item.satuan || item.unit || 'kg' })));
         setStats(prev => ({ ...prev, totalBahan: formattedIngredients.length }));
       }
 
@@ -182,45 +171,25 @@ export default function CashierStok() {
     fetchData();
   }, []);
 
-  // Handler Tambah Produk Baru oleh Kasir
+  // Handler Tambah Produk Satuan Baru oleh Kasir (Tanpa Resep Bahan)
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!formNama.trim()) return;
+    if (!formNama.trim() || !formHargaJual) return;
 
     setSubmittingProd(true);
     try {
-      let formattedResep = [];
-      if (formTipeStok === 'bahan') {
-        formattedResep = selectedResep.filter(r => r.bahanId).map(r => {
-          const b = masterBahan.find(mb => mb.id === r.bahanId);
-          return { bahanId: r.bahanId, nama: b ? b.nama : 'Bahan', satuan: b ? b.satuan : 'kg', qty: parseFloat(r.qty) || 0 };
-        });
-      }
-
-      const processedVarian = formPakaiVarian ? formVarianList.map(v => ({
-        id: v.id || Date.now(),
-        nama: v.nama,
-        hpp: parseRupiah(v.hpp),
-        hargaJual: parseRupiah(v.hargaJual),
-        resepVarian: (v.resepVarian || []).filter(rv => rv.bahanId).map(rv => {
-          const b = masterBahan.find(mb => mb.id === rv.bahanId);
-          return { bahanId: rv.bahanId, nama: b ? b.nama : 'Bahan', satuan: b ? b.satuan : 'kg', qty: parseFloat(rv.qty) || 0 };
-        })
-      })) : [];
-
       const payload = {
         owner_id: ownerId,
         nama: formNama,
         kategori: formKategori,
         sku: formSku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        tipe_stok: formTipeStok,
-        stok_manual: formTipeStok === 'manual' ? (parseFloat(formStokManual) || 0) : 0,
-        stok_min: parseFloat(formStokMin) || 5,
-        hpp: !formPakaiVarian ? parseRupiah(formHpp) : 0,
-        harga_jual: !formPakaiVarian ? parseRupiah(formHargaJual) : 0,
-        pakai_varian: formPakaiVarian,
-        varian: processedVarian,
-        resep: formattedResep
+        tipe_stok: 'manual', // Kasir khusus produk satuan/manual
+        stok_manual: parseFloat(formStokManual) || 0,
+        stok_min: 5,
+        hpp: 0,
+        harga_jual: parseRupiah(formHargaJual),
+        pakai_varian: false,
+        resep: []
       };
 
       if (formFoto && formFoto.trim() !== '') {
@@ -231,11 +200,10 @@ export default function CashierStok() {
       const { error } = await supabase.from('products').insert(payload);
       if (error) throw error;
 
-      alert('Menu produk baru berhasil ditambahkan dan otomatis terupdate!');
+      alert('Produk satuan baru berhasil ditambahkan!');
       setIsAddProductModalOpen(false);
       setFormNama('');
       setFormStokManual('');
-      setFormHpp('');
       setFormHargaJual('');
       setFormFoto('');
       fetchData();
@@ -260,13 +228,13 @@ export default function CashierStok() {
         stok: parseFloat(formBahanStok) || 0,
         satuan: formBahanSatuan,
         harga_beli: parseRupiah(formBahanHargaBeli),
-        limit_min: parseFloat(formBahanLimitMin) || 5,
+        limit_min: 5,
       };
 
       const { error } = await supabase.from('ingredients').insert([payload]);
       if (error) throw error;
 
-      alert('Bahan baku baru berhasil ditambahkan dan stok terupdate!');
+      alert('Bahan baku baru berhasil ditambahkan!');
       setIsAddIngredientModalOpen(false);
       setFormBahanNama('');
       setFormBahanStok('');
@@ -327,13 +295,13 @@ export default function CashierStok() {
             </div>
           </div>
 
-          {/* Action Buttons (Hanya menambah data baru, tidak mengedit stok lama) */}
+          {/* Action Buttons (Hanya tambah produk satuan / bahan baru) */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <button 
               onClick={() => setIsAddProductModalOpen(true)}
               className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:opacity-90 transition-colors cursor-pointer border-0"
             >
-              <Plus size={18} /> Tambah Produk Baru
+              <Plus size={18} /> Tambah Produk Satuan Baru
             </button>
             <button 
               onClick={() => setIsAddIngredientModalOpen(true)}
@@ -365,7 +333,7 @@ export default function CashierStok() {
         </div>
 
         <div>
-          {/* TAB 1: DAFTAR PRODUK (View Only untuk Stok, Bisa Tambah) */}
+          {/* TAB 1: DAFTAR PRODUK (View Only - Tanpa tombol edit stok) */}
           {activeTab === 'produk' && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
@@ -413,7 +381,7 @@ export default function CashierStok() {
             </div>
           )}
 
-          {/* TAB 2: BAHAN BAKU (View Only untuk Stok, Bisa Tambah) */}
+          {/* TAB 2: BAHAN BAKU (View Only - Tanpa tombol edit stok) */}
           {activeTab === 'bahan' && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
@@ -464,19 +432,19 @@ export default function CashierStok() {
 
       </main>
 
-      {/* MODAL TAMBAH PRODUK BARU (Persis standar Owner Produk) */}
+      {/* MODAL TAMBAH PRODUK SATUAN BARU */}
       {isAddProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col h-[85vh] max-h-[750px] border border-[#E9EBED] overflow-hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col max-h-[85vh] border border-[#E9EBED] overflow-hidden">
             <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
-              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Tambah Menu Produk Baru</h3>
+              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Tambah Produk Satuan Baru</h3>
               <button onClick={() => setIsAddProductModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddProduct} className="flex flex-col flex-1 overflow-y-auto p-4 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#181b2b] text-xs">Nama Menu Produk</label>
-                <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Kopi Susu Gula Aren" className="bg-[#F1F2F6] rounded-xl border border-[#E9EBED] p-3 font-bold outline-none text-xs" required />
+                <label className="font-bold text-[#181b2b] text-xs">Nama Produk Satuan</label>
+                <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Teh Botol / Snack Kemasan" className="bg-[#F1F2F6] rounded-xl border border-[#E9EBED] p-3 font-bold outline-none text-xs" required />
               </div>
 
               <div className="flex flex-col gap-1">
@@ -515,15 +483,9 @@ export default function CashierStok() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
-                <div className="flex flex-col gap-1">
-                  <label className="font-bold text-emerald-800 text-xs">Harga HPP (Modal)</label>
-                  <input type="text" value={formHpp} onChange={(e) => setFormHpp(formatRupiah(e.target.value))} placeholder="10.000" className="bg-white rounded-xl p-2.5 font-bold outline-none border border-emerald-200 text-xs" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="font-bold text-emerald-800 text-xs">Harga Jual (Retail)</label>
-                  <input type="text" value={formHargaJual} onChange={(e) => setFormHargaJual(formatRupiah(e.target.value))} placeholder="20.000" className="bg-white rounded-xl p-2.5 font-bold text-[#01a684] outline-none border border-emerald-200 text-xs" required />
-                </div>
+              <div className="flex flex-col gap-1 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                <label className="font-bold text-emerald-800 text-xs">Harga Jual (Retail)</label>
+                <input type="text" value={formHargaJual} onChange={(e) => setFormHargaJual(formatRupiah(e.target.value))} placeholder="5.000" className="bg-white rounded-xl p-2.5 font-bold text-[#01a684] outline-none border border-emerald-200 text-xs" required />
               </div>
 
               <div className="flex flex-col gap-1">
@@ -540,7 +502,7 @@ export default function CashierStok() {
         </div>
       )}
 
-      {/* MODAL TAMBAH BAHAN BAKU BARU (Persis standar Owner Bahan) */}
+      {/* MODAL TAMBAH BAHAN BAKU BARU */}
       {isAddIngredientModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-xs">
@@ -552,7 +514,7 @@ export default function CashierStok() {
             <form onSubmit={handleAddIngredient} className="flex flex-col gap-3">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Nama Bahan Baku</label>
-                <input type="text" value={formBahanNama} onChange={(e) => setFormBahanNama(e.target.value)} placeholder="Cth: Biji Kopi Arabika" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none text-xs" required />
+                <input type="text" value={formBahanNama} onChange={(e) => setFormBahanNama(e.target.value)} placeholder="Cth: Gula Pasir / Susu UHT" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none text-xs" required />
               </div>
 
               <div>
@@ -576,11 +538,6 @@ export default function CashierStok() {
               <div>
                 <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Total Harga Beli (Rp)</label>
                 <input type="text" value={formBahanHargaBeli} onChange={(e) => setFormBahanHargaBeli(formatRupiah(e.target.value))} placeholder="50.000" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none text-xs" required />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Limit Min (Peringatan)</label>
-                <input type="number" step="any" value={formBahanLimitMin} onChange={(e) => setFormBahanLimitMin(e.target.value)} placeholder="5" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none text-xs" />
               </div>
 
               <div className="flex gap-2 mt-2">
