@@ -23,42 +23,6 @@ const parseRupiah = (str) => {
   return parseInt(str.toString().replace(/\./g, ''), 10) || 0;
 };
 
-const compressImage = (file, callback) => {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = (event) => {
-    const img = new Image();
-    img.src = event.target.result;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 300;
-      const MAX_HEIGHT = 300;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
-        }
-      } else {
-        if (height > MAX_HEIGHT) {
-          width *= MAX_HEIGHT / height;
-          height = MAX_HEIGHT;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-      callback(dataUrl);
-    };
-  };
-};
-
 export default function CashierStok() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('produk');
@@ -68,25 +32,17 @@ export default function CashierStok() {
   const [stats, setStats] = useState({ totalProduk: 0, stokMenipis: 0, totalBahan: 0 });
 
   const [ownerId, setOwnerId] = useState('toko_123');
-  const [daftarKategoriProduk, setDaftarKategoriProduk] = useState(['Minuman', 'Makanan', 'Snack & Dessert', 'Barang Retail']);
 
-  // State Modal Tambah Produk Satuan (Khusus Kasir - Tanpa Resep Rumit)
+  // State Modal Penambahan Stok Produk (Dropdown dari produk yang sudah ada)
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
-  const [formNama, setFormNama] = useState('');
-  const [formKategori, setFormKategori] = useState('Minuman');
-  const [formSku, setFormSku] = useState('');
-  const [formStokManual, setFormStokManual] = useState('');
-  const [formHargaJual, setFormHargaJual] = useState('');
-  const [formFoto, setFormFoto] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [tambahStokProduk, setTambahStokProduk] = useState('');
   const [submittingProd, setSubmittingProd] = useState(false);
 
-  // State Modal Tambah Bahan Baku Baru
+  // State Modal Penambahan Stok Bahan Baku (Dropdown dari bahan yang sudah ada)
   const [isAddIngredientModalOpen, setIsAddIngredientModalOpen] = useState(false);
-  const [formBahanNama, setFormBahanNama] = useState('');
-  const [formBahanKategori, setFormBahanKategori] = useState('Bahan Utama');
-  const [formBahanStok, setFormBahanStok] = useState('');
-  const [formBahanSatuan, setFormBahanSatuan] = useState('kg');
-  const [formBahanHargaBeli, setFormBahanHargaBeli] = useState('');
+  const [selectedIngredientId, setSelectedIngredientId] = useState('');
+  const [tambahStokBahan, setTambahStokBahan] = useState('');
   const [submittingIng, setSubmittingIng] = useState(false);
 
   const getOwnerId = () => {
@@ -171,77 +127,64 @@ export default function CashierStok() {
     fetchData();
   }, []);
 
-  // Handler Tambah Produk Satuan Baru oleh Kasir (Tanpa Resep Bahan)
-  const handleAddProduct = async (e) => {
+  // Handler Tambah Stok Produk yang Sudah Ada (Update stok_manual / stock)
+  const handleUpdateProductStock = async (e) => {
     e.preventDefault();
-    if (!formNama.trim() || !formHargaJual) return;
+    if (!selectedProductId || !tambahStokProduk) return;
 
     setSubmittingProd(true);
     try {
-      const payload = {
-        owner_id: ownerId,
-        nama: formNama,
-        kategori: formKategori,
-        sku: formSku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        tipe_stok: 'manual', // Kasir khusus produk satuan/manual
-        stok_manual: parseFloat(formStokManual) || 0,
-        stok_min: 5,
-        hpp: 0,
-        harga_jual: parseRupiah(formHargaJual),
-        pakai_varian: false,
-        resep: []
-      };
+      // Cari produk yang dipilih untuk mengetahui stok lama
+      const targetProd = products.find(p => p.id === selectedProductId);
+      if (!targetProd) throw new Error('Produk tidak ditemukan');
 
-      if (formFoto && formFoto.trim() !== '') {
-        payload.image_url = formFoto;
-        payload.foto = formFoto;
-      }
+      const stokBaru = Number(targetProd.stok) + Number(tambahStokProduk);
 
-      const { error } = await supabase.from('products').insert(payload);
+      const { error } = await supabase
+        .from('products')
+        .update({ stok_manual: stokBaru, stock: stokBaru })
+        .eq('id', selectedProductId);
+
       if (error) throw error;
 
-      alert('Produk satuan baru berhasil ditambahkan!');
+      alert(`Stok produk "${targetProd.nama}" berhasil ditambah sebanyak ${tambahStokProduk}!`);
       setIsAddProductModalOpen(false);
-      setFormNama('');
-      setFormStokManual('');
-      setFormHargaJual('');
-      setFormFoto('');
+      setSelectedProductId('');
+      setTambahStokProduk('');
       fetchData();
     } catch (err) {
-      alert('Gagal menambah produk: ' + err.message);
+      alert('Gagal memperbarui stok produk: ' + err.message);
     } finally {
       setSubmittingProd(false);
     }
   };
 
-  // Handler Tambah Bahan Baku Baru oleh Kasir
-  const handleAddIngredient = async (e) => {
+  // Handler Tambah Stok Bahan Baku yang Sudah Ada (Update stok)
+  const handleUpdateIngredientStock = async (e) => {
     e.preventDefault();
-    if (!formBahanNama.trim() || !formBahanStok || !formBahanHargaBeli) return;
+    if (!selectedIngredientId || !tambahStokBahan) return;
 
     setSubmittingIng(true);
     try {
-      const payload = {
-        owner_id: ownerId,
-        nama: formBahanNama,
-        kategori: formBahanKategori,
-        stok: parseFloat(formBahanStok) || 0,
-        satuan: formBahanSatuan,
-        harga_beli: parseRupiah(formBahanHargaBeli),
-        limit_min: 5,
-      };
+      const targetIng = ingredients.find(i => i.id === selectedIngredientId);
+      if (!targetIng) throw new Error('Bahan baku tidak ditemukan');
 
-      const { error } = await supabase.from('ingredients').insert([payload]);
+      const stokBaru = Number(targetIng.stok) + Number(tambahStokBahan);
+
+      const { error } = await supabase
+        .from('ingredients')
+        .update({ stok: stokBaru, stock: stokBaru })
+        .eq('id', selectedIngredientId);
+
       if (error) throw error;
 
-      alert('Bahan baku baru berhasil ditambahkan!');
+      alert(`Stok bahan "${targetIng.nama}" berhasil ditambah sebanyak ${tambahStokBahan} ${targetIng.satuan}!`);
       setIsAddIngredientModalOpen(false);
-      setFormBahanNama('');
-      setFormBahanStok('');
-      setFormBahanHargaBeli('');
+      setSelectedIngredientId('');
+      setTambahStokBahan('');
       fetchData();
     } catch (err) {
-      alert('Gagal menambah bahan baku: ' + err.message);
+      alert('Gagal memperbarui stok bahan: ' + err.message);
     } finally {
       setSubmittingIng(false);
     }
@@ -265,7 +208,7 @@ export default function CashierStok() {
 
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 text-[#01A684] px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-200">
-            <span>Kasir Akses Tambah</span>
+            <span>Kasir Akses Stok</span>
           </div>
           <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-emerald-100 flex items-center justify-center font-bold text-[#01A684] shrink-0">
             FK
@@ -295,19 +238,19 @@ export default function CashierStok() {
             </div>
           </div>
 
-          {/* Action Buttons (Hanya tambah produk satuan / bahan baru) */}
+          {/* Action Buttons (Memilih produk/bahan yang sudah ada untuk ditambah stoknya) */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <button 
               onClick={() => setIsAddProductModalOpen(true)}
               className="flex-1 bg-[#01A684] text-white py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:opacity-90 transition-colors cursor-pointer border-0"
             >
-              <Plus size={18} /> Tambah Produk Satuan Baru
+              <Plus size={18} /> Tambah Stok Produk
             </button>
             <button 
               onClick={() => setIsAddIngredientModalOpen(true)}
               className="flex-1 bg-white border border-[#01A684] text-[#01A684] py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xs hover:bg-emerald-50 transition-colors cursor-pointer"
             >
-              <PlusCircle size={18} /> Tambah Bahan Baku Baru
+              <PlusCircle size={18} /> Tambah Stok Bahan Baku
             </button>
           </div>
 
@@ -333,7 +276,7 @@ export default function CashierStok() {
         </div>
 
         <div>
-          {/* TAB 1: DAFTAR PRODUK (View Only - Tanpa tombol edit stok) */}
+          {/* TAB 1: DAFTAR PRODUK */}
           {activeTab === 'produk' && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
@@ -381,7 +324,7 @@ export default function CashierStok() {
             </div>
           )}
 
-          {/* TAB 2: BAHAN BAKU (View Only - Tanpa tombol edit stok) */}
+          {/* TAB 2: BAHAN BAKU */}
           {activeTab === 'bahan' && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
@@ -432,117 +375,97 @@ export default function CashierStok() {
 
       </main>
 
-      {/* MODAL TAMBAH PRODUK SATUAN BARU */}
+      {/* MODAL PILIH PRODUK & TAMBAH STOK (Dropdown dari produk yang sudah ada) */}
       {isAddProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col max-h-[85vh] border border-[#E9EBED] overflow-hidden">
-            <div className="p-4 border-b border-[#E9EBED] flex justify-between items-center bg-white shrink-0">
-              <h3 className="font-bold text-xs lg:text-sm uppercase tracking-wider text-[#181b2b]">Tambah Produk Satuan Baru</h3>
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl flex flex-col p-6 border border-[#E9EBED]">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Tambah Stok Produk</h3>
               <button onClick={() => setIsAddProductModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={18} /></button>
             </div>
 
-            <form onSubmit={handleAddProduct} className="flex flex-col flex-1 overflow-y-auto p-4 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#181b2b] text-xs">Nama Produk Satuan</label>
-                <input type="text" value={formNama} onChange={(e) => setFormNama(e.target.value)} placeholder="Cth: Teh Botol / Snack Kemasan" className="bg-[#F1F2F6] rounded-xl border border-[#E9EBED] p-3 font-bold outline-none text-xs" required />
+            <form onSubmit={handleUpdateProductStock} className="flex flex-col gap-3">
+              <div>
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">Pilih Nama Produk</label>
+                <select 
+                  value={selectedProductId} 
+                  onChange={(e) => setSelectedProductId(e.target.value)} 
+                  className="w-full bg-[#F1F2F6] rounded-xl p-3 font-semibold outline-none text-xs border border-gray-200" 
+                  required
+                >
+                  <option value="">-- Pilih Produk Yang Sudah Ada --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nama} (Stok Saat Ini: {p.stok})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#181b2b] text-xs">Foto Produk (Opsional)</label>
-                <div className="flex items-center gap-3 bg-[#F1F2F6] p-2.5 rounded-xl border border-[#E9EBED]">
-                  {formFoto ? (
-                    <img src={formFoto} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-slate-300" />
-                  ) : (
-                    <div className="w-14 h-14 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400">
-                      <Camera size={20} />
-                    </div>
-                  )}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        compressImage(e.target.files[0], (compressedBase64) => setFormFoto(compressedBase64));
-                      }
-                    }}
-                    className="text-[10px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#01a684] file:text-white file:cursor-pointer"
-                  />
-                </div>
+              <div>
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">Jumlah Tambahan Stok</label>
+                <input 
+                  type="number" 
+                  value={tambahStokProduk} 
+                  onChange={(e) => setTambahStokProduk(e.target.value)} 
+                  placeholder="Cth: 20" 
+                  className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 font-bold outline-none text-xs" 
+                  required 
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#181b2b] text-xs">Kategori</label>
-                  <select value={formKategori} onChange={(e) => setFormKategori(e.target.value)} className="bg-[#F1F2F6] rounded-xl p-2.5 border border-[#E9EBED] font-medium outline-none text-xs">
-                    {daftarKategoriProduk.map(kat => (<option key={kat} value={kat}>{kat}</option>))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#181b2b] text-xs">SKU / Barcode</label>
-                  <input type="text" value={formSku} onChange={(e) => setFormSku(e.target.value)} placeholder="SKU-001" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-2.5 font-mono outline-none text-xs" />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
-                <label className="font-bold text-emerald-800 text-xs">Harga Jual (Retail)</label>
-                <input type="text" value={formHargaJual} onChange={(e) => setFormHargaJual(formatRupiah(e.target.value))} placeholder="5.000" className="bg-white rounded-xl p-2.5 font-bold text-[#01a684] outline-none border border-emerald-200 text-xs" required />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#181b2b] text-xs">Stok Awal</label>
-                <input type="number" value={formStokManual} onChange={(e) => setFormStokManual(e.target.value)} placeholder="50" className="bg-[#F1F2F6] border border-[#E9EBED] rounded-xl p-2.5 font-bold outline-none text-xs" required />
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t border-[#E9EBED] bg-white shrink-0 mt-auto">
+              <div className="flex gap-2 pt-3 border-t border-[#E9EBED] mt-2">
                 <button type="button" onClick={() => setIsAddProductModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white text-xs">Batal</button>
-                <button type="submit" disabled={submittingProd} className="flex-1 py-3 bg-[#01a684] border-0 text-white rounded-xl font-bold cursor-pointer shadow-sm text-xs">{submittingProd ? 'Menyimpan...' : 'Simpan Produk'}</button>
+                <button type="submit" disabled={submittingProd} className="flex-1 py-3 bg-[#01a684] border-0 text-white rounded-xl font-bold cursor-pointer shadow-sm text-xs">{submittingProd ? 'Menyimpan...' : 'Tambah Stok'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL TAMBAH BAHAN BAKU BARU */}
+      {/* MODAL PILIH BAHAN & TAMBAH STOK (Dropdown dari bahan yang sudah ada) */}
       {isAddIngredientModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-xs">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Tambah Bahan Baku Baru</h3>
-              <button onClick={() => setIsAddIngredientModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={16} /></button>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl flex flex-col p-6 border border-[#E9EBED]">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-sm uppercase tracking-wider text-[#181b2b]">Tambah Stok Bahan Baku</h3>
+              <button onClick={() => setIsAddIngredientModalOpen(false)} className="text-[#86899B] border-0 bg-transparent cursor-pointer"><X size={18} /></button>
             </div>
 
-            <form onSubmit={handleAddIngredient} className="flex flex-col gap-3">
+            <form onSubmit={handleUpdateIngredientStock} className="flex flex-col gap-3">
               <div>
-                <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Nama Bahan Baku</label>
-                <input type="text" value={formBahanNama} onChange={(e) => setFormBahanNama(e.target.value)} placeholder="Cth: Gula Pasir / Susu UHT" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none text-xs" required />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Kategori</label>
-                <input type="text" value={formBahanKategori} onChange={(e) => setFormBahanKategori(e.target.value)} placeholder="Cth: Bahan Utama" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none text-xs" required />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Stok Awal</label>
-                  <input type="number" step="any" value={formBahanStok} onChange={(e) => setFormBahanStok(e.target.value)} placeholder="0" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none text-xs" required />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Satuan</label>
-                  <select value={formBahanSatuan} onChange={(e) => setFormBahanSatuan(e.target.value)} className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-medium outline-none text-xs">
-                    <option value="kg">kg</option><option value="Liter">Liter</option><option value="Pcs">Pcs</option><option value="Pack">Pack</option><option value="Gram">Gram</option><option value="ml">ml</option>
-                  </select>
-                </div>
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">Pilih Nama Bahan Baku</label>
+                <select 
+                  value={selectedIngredientId} 
+                  onChange={(e) => setSelectedIngredientId(e.target.value)} 
+                  className="w-full bg-[#F1F2F6] rounded-xl p-3 font-semibold outline-none text-xs border border-gray-200" 
+                  required
+                >
+                  <option value="">-- Pilih Bahan Yang Sudah Ada --</option>
+                  {ingredients.map(i => (
+                    <option key={i.id} value={i.id}>
+                      {i.nama} (Stok: {i.stok} {i.satuan})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-[#86899B] mb-1">Total Harga Beli (Rp)</label>
-                <input type="text" value={formBahanHargaBeli} onChange={(e) => setFormBahanHargaBeli(formatRupiah(e.target.value))} placeholder="50.000" className="w-full bg-[#F1F2F6] rounded-xl p-2.5 font-bold outline-none text-xs" required />
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">Jumlah Tambahan Stok</label>
+                <input 
+                  type="number" 
+                  step="any" 
+                  value={tambahStokBahan} 
+                  onChange={(e) => setTambahStokBahan(e.target.value)} 
+                  placeholder="Cth: 5" 
+                  className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 font-bold outline-none text-xs" 
+                  required 
+                />
               </div>
 
-              <div className="flex gap-2 mt-2">
-                <button type="button" onClick={() => setIsAddIngredientModalOpen(false)} className="flex-1 py-2.5 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white text-xs">Batal</button>
-                <button type="submit" disabled={submittingIng} className="flex-1 py-2.5 bg-[#01a684] text-white rounded-xl font-bold cursor-pointer shadow-sm border-0 text-xs">{submittingIng ? 'Menyimpan...' : 'Simpan Bahan'}</button>
+              <div className="flex gap-2 pt-3 border-t border-[#E9EBED] mt-2">
+                <button type="button" onClick={() => setIsAddIngredientModalOpen(false)} className="flex-1 py-3 border border-[#E9EBED] text-[#181b2b] rounded-xl font-bold cursor-pointer bg-white text-xs">Batal</button>
+                <button type="submit" disabled={submittingIng} className="flex-1 py-3 bg-[#01a684] border-0 text-white rounded-xl font-bold cursor-pointer shadow-sm text-xs">{submittingIng ? 'Menyimpan...' : 'Tambah Stok'}</button>
               </div>
             </form>
           </div>
