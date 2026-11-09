@@ -33,13 +33,13 @@ export default function CashierStok() {
 
   const [ownerId, setOwnerId] = useState('toko_123');
 
-  // State Modal Penambahan Stok Produk (Dropdown dari produk yang sudah ada)
+  // State Modal Penambahan Stok Produk
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [tambahStokProduk, setTambahStokProduk] = useState('');
   const [submittingProd, setSubmittingProd] = useState(false);
 
-  // State Modal Penambahan Stok Bahan Baku (Dropdown dari bahan yang sudah ada)
+  // State Modal Penambahan Stok Bahan Baku
   const [isAddIngredientModalOpen, setIsAddIngredientModalOpen] = useState(false);
   const [selectedIngredientId, setSelectedIngredientId] = useState('');
   const [tambahStokBahan, setTambahStokBahan] = useState('');
@@ -49,7 +49,6 @@ export default function CashierStok() {
     return localStorage.getItem('owner_id') || 'toko_123';
   };
 
-  // Selalu me-refresh data secara otomatis (Real-time sync)
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -89,6 +88,7 @@ export default function CashierStok() {
             nama: item.nama || item.name || 'Produk Tanpa Nama',
             kategori: item.kategori || item.category || 'Umum',
             stok: stock,
+            satuan: item.satuan || item.unit || 'Pcs', // Mendukung satuan produk
             harga: Number(item.harga_jual || item.price || 0),
             status: isMenipis ? 'Menipis' : 'Tersedia'
           };
@@ -127,14 +127,13 @@ export default function CashierStok() {
     fetchData();
   }, []);
 
-  // Handler Tambah Stok Produk yang Sudah Ada (Update stok_manual / stock)
+  // Handler Tambah Stok Produk
   const handleUpdateProductStock = async (e) => {
     e.preventDefault();
     if (!selectedProductId || !tambahStokProduk) return;
 
     setSubmittingProd(true);
     try {
-      // Cari produk yang dipilih untuk mengetahui stok lama
       const targetProd = products.find(p => p.id === selectedProductId);
       if (!targetProd) throw new Error('Produk tidak ditemukan');
 
@@ -147,7 +146,7 @@ export default function CashierStok() {
 
       if (error) throw error;
 
-      alert(`Stok produk "${targetProd.nama}" berhasil ditambah sebanyak ${tambahStokProduk}!`);
+      alert(`Stok produk "${targetProd.nama}" berhasil ditambah sebanyak ${tambahStokProduk} ${targetProd.satuan}!`);
       setIsAddProductModalOpen(false);
       setSelectedProductId('');
       setTambahStokProduk('');
@@ -159,7 +158,7 @@ export default function CashierStok() {
     }
   };
 
-  // Handler Tambah Stok Bahan Baku yang Sudah Ada (Update stok)
+  // Handler Tambah Stok Bahan Baku
   const handleUpdateIngredientStock = async (e) => {
     e.preventDefault();
     if (!selectedIngredientId || !tambahStokBahan) return;
@@ -191,6 +190,10 @@ export default function CashierStok() {
   };
 
   const formatRp = (val) => Number(val || 0).toLocaleString('id-ID');
+
+  // Ambil objek produk/bahan yang sedang dipilih di dropdown untuk menampilkan satuan di inputan
+  const selectedProductObj = products.find(p => p.id === selectedProductId);
+  const selectedIngredientObj = ingredients.find(i => i.id === selectedIngredientId);
 
   return (
     <div className="bg-[#F1F2F6] text-[#1A1A1A] font-sans min-h-screen flex flex-col relative pb-[120px] lg:pb-12">
@@ -238,7 +241,7 @@ export default function CashierStok() {
             </div>
           </div>
 
-          {/* Action Buttons (Memilih produk/bahan yang sudah ada untuk ditambah stoknya) */}
+          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <button 
               onClick={() => setIsAddProductModalOpen(true)}
@@ -305,7 +308,7 @@ export default function CashierStok() {
                           <td className="p-4 text-[#1A1A1A] font-medium text-xs">{item.nama}</td>
                           <td className="p-4 text-gray-500 text-xs">{item.kategori}</td>
                           <td className={`p-4 font-bold text-xs tabular-nums ${item.stok <= 5 ? 'text-red-500' : 'text-[#1A1A1A]'}`}>
-                            {item.stok}
+                            {item.stok} {item.satuan || 'Pcs'}
                           </td>
                           <td className="p-4 text-[#1A1A1A] text-xs tabular-nums">Rp {formatRp(item.harga)}</td>
                           <td className="p-4 text-right">
@@ -375,7 +378,7 @@ export default function CashierStok() {
 
       </main>
 
-      {/* MODAL PILIH PRODUK & TAMBAH STOK (Dropdown dari produk yang sudah ada) */}
+      {/* MODAL TAMBAH STOK PRODUK (Dropdown Produk yang Sudah Ada + Keterangan Satuan) */}
       {isAddProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl flex flex-col p-6 border border-[#E9EBED]">
@@ -396,22 +399,29 @@ export default function CashierStok() {
                   <option value="">-- Pilih Produk Yang Sudah Ada --</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.nama} (Stok Saat Ini: {p.stok})
+                      {p.nama} (Stok: {p.stok} {p.satuan || 'Pcs'})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="font-bold text-[#181b2b] text-xs block mb-1">Jumlah Tambahan Stok</label>
-                <input 
-                  type="number" 
-                  value={tambahStokProduk} 
-                  onChange={(e) => setTambahStokProduk(e.target.value)} 
-                  placeholder="Cth: 20" 
-                  className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 font-bold outline-none text-xs" 
-                  required 
-                />
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">
+                  Jumlah Tambahan Stok {selectedProductObj ? `(${selectedProductObj.satuan || 'Pcs'})` : ''}
+                </label>
+                <div className="relative flex items-center">
+                  <input 
+                    type="number" 
+                    value={tambahStokProduk} 
+                    onChange={(e) => setTambahStokProduk(e.target.value)} 
+                    placeholder="Cth: 20" 
+                    className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 pr-16 font-bold outline-none text-xs" 
+                    required 
+                  />
+                  <span className="absolute right-3 text-xs font-bold text-gray-500 uppercase bg-gray-200 px-2 py-1 rounded-lg">
+                    {selectedProductObj ? (selectedProductObj.satuan || 'Pcs') : 'Pcs'}
+                  </span>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-[#E9EBED] mt-2">
@@ -423,7 +433,7 @@ export default function CashierStok() {
         </div>
       )}
 
-      {/* MODAL PILIH BAHAN & TAMBAH STOK (Dropdown dari bahan yang sudah ada) */}
+      {/* MODAL TAMBAH STOK BAHAN BAKU (Dropdown Bahan yang Sudah Ada + Keterangan Satuan) */}
       {isAddIngredientModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 lg:p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl flex flex-col p-6 border border-[#E9EBED]">
@@ -451,16 +461,23 @@ export default function CashierStok() {
               </div>
 
               <div>
-                <label className="font-bold text-[#181b2b] text-xs block mb-1">Jumlah Tambahan Stok</label>
-                <input 
-                  type="number" 
-                  step="any" 
-                  value={tambahStokBahan} 
-                  onChange={(e) => setTambahStokBahan(e.target.value)} 
-                  placeholder="Cth: 5" 
-                  className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 font-bold outline-none text-xs" 
-                  required 
-                />
+                <label className="font-bold text-[#181b2b] text-xs block mb-1">
+                  Jumlah Tambahan Stok {selectedIngredientObj ? `(${selectedIngredientObj.satuan})` : ''}
+                </label>
+                <div className="relative flex items-center">
+                  <input 
+                    type="number" 
+                    step="any" 
+                    value={tambahStokBahan} 
+                    onChange={(e) => setTambahStokBahan(e.target.value)} 
+                    placeholder="Cth: 5" 
+                    className="w-full bg-[#F1F2F6] border border-gray-200 rounded-xl p-3 pr-20 font-bold outline-none text-xs" 
+                    required 
+                  />
+                  <span className="absolute right-3 text-xs font-bold text-gray-500 uppercase bg-gray-200 px-2 py-1 rounded-lg">
+                    {selectedIngredientObj ? selectedIngredientObj.satuan : 'satuan'}
+                  </span>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-[#E9EBED] mt-2">
